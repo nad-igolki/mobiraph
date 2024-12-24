@@ -1,0 +1,19 @@
+name: sna
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - matplotlib
+  - networkx
+  - numpy
+  - pandas
+  - scikit-learn
+  - leidenalg
+  - python-igraph
+  - blas
+  - lapack
+  - notebook
+  - conda-forge::opentsne
+  - pytorch::pytorch
+  - conda-forge::pytorch_geometric
+  - conda-forge::tensorflow
