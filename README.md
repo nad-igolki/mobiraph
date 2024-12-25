@@ -29,6 +29,7 @@ conda activate mobigraph
    - `characteristics.ipynb`: Calculating graph characteristics.
    - `visualization.ipynb`: Visualizing the graph and its components.
 
+`research_paper.pdf`: Research Paper Overview.
 
 ## Сontributions
 
