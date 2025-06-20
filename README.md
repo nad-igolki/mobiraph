@@ -34,6 +34,7 @@ conda activate mobigraph
 ## Сontributions
 
 - **Nadezhda Igolkina** : Developer
+- **Ilya Karpov**: Supervisor
 - **Anna Igolkina**: Supervisor, [GitHub](https://github.com/iganna)
 
 ## License
