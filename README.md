@@ -2,6 +2,8 @@
 Construct a graph on the mobilome and annotate it by families of mobile elements.
 **Mobiraph** is a future extension on the [Pannagram](https://github.com/iganna/pannagram) package.
 
+[Further development is carried out in a separate branch](https://github.com/nad-igolki/mobiraph/tree/dev)
+
 ## Features
 
 - Construct the graph on DNA sequences of the mobilome
