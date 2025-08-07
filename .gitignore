@@ -1,5 +1,5 @@
-01_data/
+n01_data/
 config.py
 **/.DS_Store
 **/.idea/
-__pycache__/
+**/__pycache__/
