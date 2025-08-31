@@ -3,3 +3,4 @@ config.py
 **/.DS_Store
 **/.idea/
 **/__pycache__/
+n02_scripts/test*

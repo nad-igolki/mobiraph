@@ -3,6 +3,7 @@ import config
 
 import numpy as np
 import json
+from collections import Counter
 
 
 def kmer_distribution(sequence: str, k: int):
@@ -27,7 +28,7 @@ def kmer_distribution(sequence: str, k: int):
     """
     with open(config.FILE_KMERS, "r", encoding="utf-8") as f:
         kmers_all = json.load(f)
-    kmers = kmers_all[k]
+    kmers = kmers_all[str(k)]
 
     # Словарь для подсчёта
     counts = {kmer: 0 for kmer in kmers}
@@ -38,10 +39,7 @@ def kmer_distribution(sequence: str, k: int):
         # Если последовательность слишком короткая
         return kmers, np.zeros(len(kmers))
 
-    for i in range(total_kmers):
-        kmer = sequence[i:i + k]
-        if kmer in counts:
-            counts[kmer] += 1
+    counts = Counter(sequence[i:i+k] for i in range(total_kmers))
 
     # Преобразуем в вектор в том же порядке, что и kmers
     embedding = np.array([counts[kmer] for kmer in kmers], dtype=float)
