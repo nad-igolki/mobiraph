@@ -32,10 +32,10 @@ def kmer_remove_non_significant(dataset_dir: str, k: int, threshold: int, mode=N
 
 if __name__ == '__main__':
     ks = [4, 5, 6, 7]
-    # thresholds = [90, 45, 20, 7]
+    # thresholds = [100, 60, 30, 10]
     # for i in tqdm(range(len(ks))):
     #     kmer_remove_non_significant(config.DIR_INCEST_MANY, ks[i], thresholds[i])
 
-    thresholds = [3000, 2700, 1900, 900]
+    thresholds = [3000, 2900, 1800, 1000]
     for i in tqdm(range(len(ks))):
         kmer_remove_non_significant(config.DIR_KMER_DATASETS, ks[i], thresholds[i], 0, 1)
