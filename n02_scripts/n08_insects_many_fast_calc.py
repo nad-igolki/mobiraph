@@ -22,7 +22,7 @@ def read_fasta(path: str):
                 name = line[1:].strip()
                 chunks = []
             else:
-                chunks.append(line)
+                chunks.append(line.upper())
         if name is not None:
             yield name, "".join(chunks)
 
@@ -59,9 +59,11 @@ def process_k(k: int, fasta_path: str, out_dir: str, processes: int | None = Non
             for name, emb in tqdm(pool.imap_unordered(_embed_one, args_iter, chunksize=chunk), desc=f"k={k}"):
                 writer.writerow([name] + list(emb))
 
+
 def main():
     for k in [4, 5, 6, 7]:
         process_k(k, FASTA_PATH, OUTPUT_PATH)
+
 
 if __name__ == "__main__":
     main()

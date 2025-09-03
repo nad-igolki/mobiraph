@@ -30,9 +30,6 @@ def kmer_distribution(sequence: str, k: int):
         kmers_all = json.load(f)
     kmers = kmers_all[str(k)]
 
-    # Словарь для подсчёта
-    counts = {kmer: 0 for kmer in kmers}
-
     # Считаем k-меры в последовательности
     total_kmers = len(sequence) - k + 1
     if total_kmers <= 0:
@@ -48,3 +45,7 @@ def kmer_distribution(sequence: str, k: int):
     embedding /= total_kmers
 
     return kmers, embedding
+
+
+if __name__ == "__main__":
+    kmer_distribution('ACGTCGATACGTCGATACGTCGATACGTCGATACGTCGATACGTCGAT', 4)

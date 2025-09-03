@@ -11,11 +11,9 @@ import config
 def kmer_standardize_and_filter(
     dataset_dir: str,
     k: int,
-    threshold: float = 0.01,
+    number_of_columns: int = 50,
     mode: str | None = None,
     seed: int | None = None,
-    use_abs_max: bool = True,
-    zero_only_drop: bool = True
 ):
     if mode is not None:
         path = os.path.join(dataset_dir, f'{k}_{mode}_{seed}.csv')
@@ -32,41 +30,19 @@ def kmer_standardize_and_filter(
         print("No embedding columns found, saved original file.")
         return
 
-    df[emb_cols] = df[emb_cols].astype(np.float32)
-    if df[emb_cols].isna().any().any():
-        df[emb_cols] = df[emb_cols].fillna(0.0)
+    nonzero_counts = (df[emb_cols] != 0).sum(axis=0)
 
-    # Сразу выкинем колонки, где все нули
-    if zero_only_drop:
-        nonzero_mask = (df[emb_cols] != 0).any(axis=0).values
-        kept_zero_drop = np.array(emb_cols)[nonzero_mask].tolist()
-        dropped_zero = np.array(emb_cols)[~nonzero_mask].tolist()
-        if dropped_zero:
-            df = df.drop(columns=dropped_zero)
-            emb_cols = kept_zero_drop
+    # выбираем number_of_columns колонок с максимальным количеством ненулевых элементов
+    top50_cols = nonzero_counts.sort_values(ascending=False).head(number_of_columns).index
 
+    # оставляем только эти колонки в df
+    df_top50 = df[top50_cols]
 
-    if use_abs_max:
-        col_max = np.nanmax(np.abs(df[emb_cols]), axis=0)
-    else:
-        col_max = np.nanmax(df[emb_cols], axis=0)
-
-    keep_mask = col_max >= np.float32(threshold)
-    cols_to_drop = np.array(emb_cols)[~keep_mask].tolist()
-
-    if cols_to_drop:
-        df = df.drop(columns=cols_to_drop)
-
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    df.to_csv(save_path, index=False)
-
-    del col_max
-    gc.collect()
+    df_top50.to_csv(save_path, index=False)
 
     print(
-        f"Removed {len(cols_to_drop)} columns "
-        f"(plus {len(dropped_zero) if zero_only_drop else 0} all-zero). "
-        f"Final shape: {df.shape}"
+        f"Removed {len(df.columns) - len(df_top50.columns)} columns "
+        f"Final shape: {df_top50.shape}"
     )
 
 if __name__ == '__main__':
