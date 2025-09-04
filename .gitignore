@@ -4,3 +4,5 @@ config.py
 **/.idea/
 **/__pycache__/
 n02_scripts/test*
+checkpoints/
+hyena_dna/
