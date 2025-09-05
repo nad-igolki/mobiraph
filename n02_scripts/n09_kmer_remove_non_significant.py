@@ -8,19 +8,21 @@ import gc
 import config
 
 
-def kmer_standardize_and_filter(
+def kmer_trim50(
     dataset_dir: str,
     k: int,
     number_of_columns: int = 50,
     mode: str | None = None,
     seed: int | None = None,
 ):
+    columns_to_add = ['name']
     if mode is not None:
         path = os.path.join(dataset_dir, f'{k}_{mode}_{seed}.csv')
-        save_path = os.path.join(dataset_dir, f'{k}_{mode}_{seed}_trimmed.csv')
+        save_path = os.path.join(dataset_dir, f'{k}_{mode}_{seed}_trimmed50.csv')
+        columns_to_add.append('type')
     else:
         path = os.path.join(dataset_dir, f'{k}.csv')
-        save_path = os.path.join(dataset_dir, f'{k}_trimmed.csv')
+        save_path = os.path.join(dataset_dir, f'{k}_trimmed50.csv')
 
     df = pd.read_csv(path)
 
@@ -35,8 +37,10 @@ def kmer_standardize_and_filter(
     # выбираем number_of_columns колонок с максимальным количеством ненулевых элементов
     top50_cols = nonzero_counts.sort_values(ascending=False).head(number_of_columns).index
 
+    want = columns_to_add + list(top50_cols)
+
     # оставляем только эти колонки в df
-    df_top50 = df[top50_cols]
+    df_top50 = df[want]
 
     df_top50.to_csv(save_path, index=False)
 
@@ -49,6 +53,6 @@ if __name__ == '__main__':
     ks = [4, 5, 6, 7]
 
     for i in tqdm(range(len(ks))):
-        kmer_standardize_and_filter(config.DIR_KMER_DATASETS, ks[i], mode=0, seed=1)
-    for i in tqdm(range(len(ks))):
-        kmer_standardize_and_filter(config.DIR_INCEST_MANY, ks[i])
+        kmer_trim50(config.DIR_KMER_DATASETS, ks[i], mode=0, seed=1)
+    # for i in tqdm(range(len(ks))):
+    #     kmer_trim50(config.DIR_INCEST_MANY, ks[i])
