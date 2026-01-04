@@ -1,21 +1,17 @@
-n01_data/
+data/
 config.py
 **/.DS_Store
 **/.idea/
 **/__pycache__/
-n02_scripts/test*
+__pycache__/
+scripts/test*
 checkpoints/
 hyena_dna/
 mobiraph.yml
 
-## Игнорим всё внутри n01_data
-#n01_data/**
-#
-## Но не игнорим саму директорию n01_data/n06_insects_many и всё её содержимое
 #!n01_data/n06_insects_many/
 #!n01_data/n06_insects_many/**
 #
-## А внутри неё — снова игнорим файлы
 #n01_data/n06_insects_many/4*
 #n01_data/n06_insects_many/5*
 #n01_data/n06_insects_many/6*
