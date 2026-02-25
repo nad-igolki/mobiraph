@@ -3,7 +3,7 @@ import csv
 from tqdm import tqdm
 import multiprocessing as mp
 import config
-from n02_scripts.n05_kmer_statistics import kmer_distribution
+from scripts.n04_kmer_statistics import kmer_distribution
 
 FASTA_PATH = config.FILE_INSECT_MANY_FASTA
 OUTPUT_PATH = config.DIR_INCEST_MANY
@@ -62,7 +62,7 @@ def process_k(k: int, fasta_path: str, out_dir: str, processes: int | None = Non
 
 def main():
     # ks = [4, 5, 6, 7]
-    ks = [5, 6, 7]
+    ks = [7]
     for k in ks:
         process_k(k, FASTA_PATH, OUTPUT_PATH)
 
