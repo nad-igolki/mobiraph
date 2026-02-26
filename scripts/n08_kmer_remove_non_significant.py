@@ -8,11 +8,11 @@ import gc
 import config
 
 
-def kmer_trim50(
+def kmer_trim(
     dataset_dir: str,
     k: int,
-    number_of_columns: int = 50,
-    mode: str | None = None,
+    number_of_columns: int = 5000,
+    mode: int | None = None,
     seed: int | None = None,
 ):
     columns_to_add = ['name']
@@ -22,7 +22,7 @@ def kmer_trim50(
         columns_to_add.append('type')
     else:
         path = os.path.join(dataset_dir, f'{k}.csv')
-        save_path = os.path.join(dataset_dir, f'{k}_trimmed50.csv')
+        save_path = os.path.join(dataset_dir, f'{k}_trimmed{number_of_columns}.csv')
 
     df = pd.read_csv(path)
 
@@ -50,9 +50,7 @@ def kmer_trim50(
     )
 
 if __name__ == '__main__':
-    ks = [4, 5, 6, 7]
+    ks = [7]
 
     for i in tqdm(range(len(ks))):
-        kmer_trim50(config.DIR_KMER_DATASETS, ks[i], mode=0, seed=1)
-    # for i in tqdm(range(len(ks))):
-    #     kmer_trim50(config.DIR_INCEST_MANY, ks[i])
+        kmer_trim(config.DIR_INCEST_MANY, ks[i])
