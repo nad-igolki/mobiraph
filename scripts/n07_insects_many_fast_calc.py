@@ -63,7 +63,7 @@ def process_k(k: int, fasta_path: str, out_dir: str, processes: int | None = Non
 def main():
     ks = [4, 5, 6, 7]
     for k in ks:
-        process_k(k, FASTA_PATH, OUTPUT_PATH)
+        process_k(k, FASTA_PATH, OUTPUT_PATH, processes=30)
 
 
 if __name__ == "__main__":
