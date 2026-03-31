@@ -1,5 +1,6 @@
 data/
-config.py
+#config.py
+config_real.py
 **/.DS_Store
 **/.idea/
 **/__pycache__/

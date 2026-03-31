@@ -5,8 +5,8 @@ import multiprocessing as mp
 import config
 from scripts.n04_kmer_statistics import kmer_distribution
 
-FASTA_PATH = config.FILE_INSECT_MANY_FASTA
-OUTPUT_PATH = config.DIR_INCEST_MANY
+FASTA_PATH = config.FILE_ALL_SEQUNCES_FILTERED_01
+OUTPUT_PATH = config.DIR_ALL_SEQUENCES_FILTERED_KMER
 
 def read_fasta(path: str):
     name = None
@@ -19,7 +19,7 @@ def read_fasta(path: str):
             if line.startswith(">"):
                 if name is not None:
                     yield name, "".join(chunks)
-                name = line[1:].strip()
+                name = line[1:].split("\t")[0]
                 chunks = []
             else:
                 chunks.append(line.upper())
@@ -55,14 +55,14 @@ def process_k(k: int, fasta_path: str, out_dir: str, processes: int | None = Non
             processes = max(1, mp.cpu_count() - 1)
 
         with mp.get_context("spawn").Pool(processes) as pool:
+
             args_iter = ((name, seq, k) for (name, seq) in fasta_iter)
             for name, emb in tqdm(pool.imap_unordered(_embed_one, args_iter, chunksize=chunk), desc=f"k={k}"):
                 writer.writerow([name] + list(emb))
 
 
 def main():
-    # ks = [4, 5, 6, 7]
-    ks = [7]
+    ks = [4, 5, 6, 7]
     for k in ks:
         process_k(k, FASTA_PATH, OUTPUT_PATH)
 
