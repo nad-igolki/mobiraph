@@ -2,11 +2,10 @@ import os
 import csv
 from tqdm import tqdm
 import multiprocessing as mp
-import config
 from scripts.n04_kmer_statistics import kmer_distribution
 
-FASTA_PATH = config.FILE_ALL_SEQUNCES_FILTERED_01
-OUTPUT_PATH = config.DIR_ALL_SEQUENCES_FILTERED_KMER
+FASTA_PATH = ''
+OUTPUT_PATH = ''
 
 def read_fasta(path: str):
     name = None
