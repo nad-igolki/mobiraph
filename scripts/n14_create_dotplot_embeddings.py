@@ -202,6 +202,7 @@ def process_fasta_chunk(args):
     create_edges_csv_start(edges_part)
 
     for header, sequence in records:
+        sequence = sequence.upper()
         graph_id = header.split('\t')[0]
 
         features, matrix = dotplot(
@@ -338,5 +339,5 @@ if __name__ == '__main__':
         fasta_path=fasta_path,
         file_edges=file_edges,
         file_nodes=file_nodes,
-        n_processes=None
+        n_processes=30
     )
