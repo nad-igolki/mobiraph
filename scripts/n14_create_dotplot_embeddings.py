@@ -337,5 +337,6 @@ if __name__ == '__main__':
     create_and_write_graphs_from_fasta_parallel(
         fasta_path=fasta_path,
         file_edges=file_edges,
-        file_nodes=file_nodes
+        file_nodes=file_nodes,
+        n_processes=None
     )
