@@ -4,6 +4,7 @@ from tqdm import tqdm
 import csv
 import math
 import time
+import gc
 
 import config
 from scripts.n13_dotplot import dotplot
@@ -13,6 +14,32 @@ import os
 wsize = 15
 nmatch = 12
 scatter = False
+
+
+from pathlib import Path
+import glob
+
+def load_processed_ids(log_path):
+    if not os.path.exists(log_path):
+        return set()
+
+    processed = set()
+    with open(log_path, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                processed.add(line)
+    return processed
+
+
+def append_processed_id(log_path, graph_id, lock=None):
+    if lock is not None:
+        with lock:
+            with open(log_path, 'a') as f:
+                f.write(f"{graph_id}\n")
+    else:
+        with open(log_path, 'a') as f:
+            f.write(f"{graph_id}\n")
 
 
 def nucleotide_fractions(seq):
@@ -193,10 +220,10 @@ def chunk_list(data, n_chunks):
 
 
 def process_fasta_chunk(args):
-    chunk_id, records, temp_dir, wsize, nmatch, scatter = args
+    chunk_id, records, temp_dir, wsize, nmatch, scatter, processed_log, run_id = args
 
-    nodes_part = os.path.join(temp_dir, f"nodes_part_{chunk_id}.csv")
-    edges_part = os.path.join(temp_dir, f"edges_part_{chunk_id}.csv")
+    nodes_part = os.path.join(temp_dir, f"nodes_part_{run_id}_{chunk_id}.csv")
+    edges_part = os.path.join(temp_dir, f"edges_part_{run_id}_{chunk_id}.csv")
 
     create_nodes_csv_start(nodes_part)
     create_edges_csv_start(edges_part)
@@ -228,8 +255,13 @@ def process_fasta_chunk(args):
             wsize=wsize
         )
 
+        append_processed_id(processed_log, graph_id, counter_lock)
+
         with counter_lock:
             counter.value += 1
+
+        del sequence, features, matrix, node_index_dic
+        gc.collect()
 
     return nodes_part, edges_part
 
@@ -283,19 +315,48 @@ def create_and_write_graphs_from_fasta_parallel(
 
     os.makedirs(temp_dir, exist_ok=True)
 
-    records = list(read_fasta(fasta_path))
-    total = len(records)
+    processed_log = os.path.join(os.path.dirname(file_nodes), "processed_sequences.log")
+    processed_ids = load_processed_ids(processed_log)
 
-    if total == 0:
+    records = list(read_fasta(fasta_path))
+    total_all = len(records)
+
+    if total_all == 0:
         raise ValueError("FASTA-файл пустой")
 
+    records = [
+        (header, seq)
+        for header, seq in records
+        if header.split('\t')[0] not in processed_ids
+    ]
+
+    total = len(records)
+    print(f"Всего последовательностей: {total_all}")
+    print(f"Уже обработано: {len(processed_ids)}")
+    print(f"Осталось обработать: {total}")
+
+    if total == 0:
+        print("Все последовательности уже обработаны.")
+        node_parts = sorted(glob.glob(os.path.join(temp_dir, "nodes_part_*.csv")))
+        edge_parts = sorted(glob.glob(os.path.join(temp_dir, "edges_part_*.csv")))
+
+        if node_parts:
+            merge_csv_files(node_parts, file_nodes)
+        if edge_parts:
+            merge_csv_files(edge_parts, file_edges)
+        return
+
     chunks = chunk_list(records, n_processes)
+    del records
+    gc.collect()
 
     counter = Value('i', 0)
     lock = Lock()
 
+    run_id = int(time.time())
+
     worker_args = [
-        (i, chunk, temp_dir, wsize, nmatch, scatter)
+        (i, chunk, temp_dir, wsize, nmatch, scatter, processed_log, run_id)
         for i, chunk in enumerate(chunks)
         if chunk
     ]
@@ -320,10 +381,10 @@ def create_and_write_graphs_from_fasta_parallel(
                 current = counter.value
             pbar.update(current - last)
 
-        results = result.get()
+        result.get()
 
-    node_parts = [x[0] for x in results]
-    edge_parts = [x[1] for x in results]
+    node_parts = sorted(glob.glob(os.path.join(temp_dir, "nodes_part_*.csv")))
+    edge_parts = sorted(glob.glob(os.path.join(temp_dir, "edges_part_*.csv")))
 
     merge_csv_files(node_parts, file_nodes)
     merge_csv_files(edge_parts, file_edges)
@@ -339,5 +400,5 @@ if __name__ == '__main__':
         fasta_path=fasta_path,
         file_edges=file_edges,
         file_nodes=file_nodes,
-        n_processes=30
+        n_processes=None
     )

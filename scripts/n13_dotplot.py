@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 def seq2mx(seq, wsize):
@@ -36,6 +35,7 @@ def dotplot(seq1, seq2, wsize=15, nmatch=12, scatter=False):
     max_result = np.maximum(result, result_rc)
 
     if scatter:
+        import matplotlib.pyplot as plt
         rows, cols = np.nonzero(result)
         rows_rc, cols_rc = np.nonzero(result_rc)
         cols_rc = len(seq2) - cols_rc - wsize + 2
@@ -52,3 +52,6 @@ def dotplot(seq1, seq2, wsize=15, nmatch=12, scatter=False):
 # helitron = "aaaaaaaatttgtttctaaaagattgattttttaagttttctatgtaatatttattggttagtattggtgaattgtaattttcaagaaaaatagttaattctcattggtttagagtagggatgtcaaaatgggtaacccaactcaactcataatcaaatgagtttaaggttaaatgagttatgggttgacccaactcattttgttaaataggttgggtctacctataactcatttaatatgggttaacccatttaaataataatttaattaattattattataaaaataataaattaataatgattcattatcatcaaacttaggatatttacggattccactttttacggatttacgtttttgacgagaaaatcatgggtttacgtttttggcgggaaaatctcgggtttacgtttttggcggaaaaatcacggatttacgtttttggcgggaaaatcacggatttacgtttttggcgggaaaatcacggttttttgttttttggcgggaaaattacgagttaacgtttttggcgggaaaattacgaatttacgtttttggcgggaaaatcacgggtttacgtttttggcgggaaaatcacaggatttacatttttggcgggaaaatcttgggtttacgtttttggcgagaaaatcttgggtttacgttttttgcaggaaaatcacgggtttacttttttggcgggaaaatcacgggtttatgttttttggtggaaaaattacgagtttactttttctcaatttcatcgattgtatatttaagaaatttggaaaaatattaattttattaaattggtttagatgtgttggttaaacttaaattgacattggtttagagattttagttggtttaattcaattttacaaaacttattgggttaattgggtaaaccattaaaaccattaaccattacaacccaactcattttactcatcaaaccaattgactcatcaactcatttgacccatcaactcatttgagtcaaaaattttaactcattagggttcatggattgagttgagttgagttgaccatgaattttgacccattttgacacccctagtttagagttatagaaaactgtaaaacactaaaaataatacatttataatcaacatttaatatgttttcttaatatgtgtgtttttctaaacaatcaaacaaaaatgaacggaggaa"
 # helitron = helitron.upper()
 # features, graph = dotplot(helitron, helitron, wsize=15, nmatch=12, scatter=True)
+# g = "tgttgcagactatgcaaaccttcattagttttataagtttaatatccgccttagtttgatctacccaaagtaggcgcgcgcaataaccactgtttgtgctaattgtcatcacgcgcgtaactatttgttcccttggtcagaactcctagataaaggggctgatcattctgatactctctctcctgccccaaagtattctgttgtcccctattcactgaataaagtccttattcatctactactcacatactgtctggctggtggttcacacaatgccgccaccaggagacacaaca"
+# g = g.upper()
+# features, graph = dotplot(g, g, wsize=15, nmatch=12, scatter=True)
