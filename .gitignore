@@ -9,6 +9,7 @@ scripts/test*
 checkpoints/
 hyena_dna/
 mobiraph.yml
+not_used/
 
 #!n01_data/n06_insects_many/
 #!n01_data/n06_insects_many/**
