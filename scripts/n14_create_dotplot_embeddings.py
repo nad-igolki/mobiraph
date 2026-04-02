@@ -9,6 +9,7 @@ import math
 import os
 import time
 from multiprocessing import Pool, cpu_count, Value, Lock
+import config
 
 import numpy as np
 from tqdm import tqdm
@@ -343,12 +344,12 @@ def parse_args():
 
     parser.add_argument(
         "--fasta",
-        required=True,
+        default=f"{config.DIR_REPBASE_PROCESSED}/all_sequences_filtered_01.fasta",
         help="Путь к входному FASTA-файлу."
     )
     parser.add_argument(
         "--output-dir",
-        required=True,
+        default=f"{config.DIR_DOTPLOTS}",
         help="Каталог, куда будут сохранены nodes.csv, edges.csv, tmp_parts и processed_sequences.log."
     )
     parser.add_argument(
