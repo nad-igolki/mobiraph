@@ -3,6 +3,7 @@ import json
 import pandas as pd
 import torch
 import dgl
+import numpy as np
 
 from dgl.data import DGLDataset
 from dgl.data.utils import save_graphs, load_graphs, save_info, load_info
@@ -77,6 +78,7 @@ class GraphsFromCSVDataset(DGLDataset):
             dst = g_edges["dst"].map(node_id_map).to_list()
 
             g = dgl.graph((src, dst), num_nodes=len(unique_node_ids))
+            g = dgl.to_bidirected(g, copy_ndata=True)
 
             g_nodes = g_nodes.sort_values("node_id")
             node_feats = torch.tensor(g_nodes[node_feat_cols].values, dtype=torch.float32)
@@ -87,6 +89,8 @@ class GraphsFromCSVDataset(DGLDataset):
                 edge_feat = torch.tensor(
                     g_edges["edge_param"].values, dtype=torch.float32
                 ).unsqueeze(1)
+
+                edge_feat = torch.cat([edge_feat, edge_feat], dim=0)
                 g.edata["edge_param"] = edge_feat
 
             self.graphs.append(g)
@@ -102,6 +106,52 @@ class GraphsFromCSVDataset(DGLDataset):
             self.labels.append(self.label2id[label_name])
 
         self.labels = torch.tensor(self.labels, dtype=torch.long)
+
+    def split_idx(
+            self,
+            train_ratio=0.8,
+            val_ratio=0.1,
+            test_ratio=0.1,
+            seed=42,
+            stratified=True,
+    ):
+        assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6
+
+        np.random.seed(seed)
+
+        indices = np.arange(len(self.graphs))
+
+        if stratified:
+            train_idx, val_idx, test_idx = [], [], []
+
+            for label in torch.unique(self.labels):
+                label = label.item()
+                label_indices = indices[self.labels.numpy() == label]
+                np.random.shuffle(label_indices)
+
+                n = len(label_indices)
+                n_train = int(n * train_ratio)
+                n_val = int(n * val_ratio)
+
+                train_idx.extend(label_indices[:n_train])
+                val_idx.extend(label_indices[n_train:n_train + n_val])
+                test_idx.extend(label_indices[n_train + n_val:])
+
+        else:
+            np.random.shuffle(indices)
+            n = len(indices)
+            n_train = int(n * train_ratio)
+            n_val = int(n * val_ratio)
+
+            train_idx = indices[:n_train]
+            val_idx = indices[n_train:n_train + n_val]
+            test_idx = indices[n_train + n_val:]
+
+        return {'train': torch.tensor(train_idx, dtype=torch.long),
+            'valid': torch.tensor(val_idx, dtype=torch.long),
+            'test': torch.tensor(test_idx, dtype=torch.long),
+        }
+
 
     def __getitem__(self, idx):
         return self.graphs[idx], self.labels[idx]

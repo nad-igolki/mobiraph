@@ -4,9 +4,9 @@
 import argparse
 import csv
 import gc
-import glob
 import math
 import os
+import shutil
 import time
 from multiprocessing import Pool, cpu_count, Value, Lock
 import config
@@ -19,35 +19,56 @@ from scripts.n13_dotplot import dotplot
 
 counter = None
 counter_lock = None
+io_lock = None
 
 
-def init_worker(c, l):
-    global counter, counter_lock
+def init_worker(c, c_lock, shared_io_lock):
+    global counter, counter_lock, io_lock
     counter = c
-    counter_lock = l
+    counter_lock = c_lock
+    io_lock = shared_io_lock
 
 
-def load_processed_ids(log_path):
+def load_finished_ids(log_path):
+    """
+    Читает лог статусов и возвращает только те graph_id,
+    у которых последний статус == finished.
+    """
     if not os.path.exists(log_path):
         return set()
 
-    processed = set()
+    statuses = {}
     with open(log_path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
-            if line:
-                processed.add(line)
-    return processed
+            if not line:
+                continue
+
+            parts = line.split("\t")
+            if len(parts) != 2:
+                continue
+
+            graph_id, status = parts
+            statuses[graph_id] = status
+
+    return {graph_id for graph_id, status in statuses.items() if status == "finished"}
 
 
-def append_processed_id(log_path, graph_id, lock=None):
+def append_status(log_path, graph_id, status, lock=None):
+    """
+    Пишет в лог строку вида:
+    graph_id<TAB>started
+    graph_id<TAB>finished
+
+    Лог append-only: актуальным считается последний статус graph_id.
+    """
     if lock is not None:
         with lock:
             with open(log_path, "a", encoding="utf-8") as f:
-                f.write(f"{graph_id}\n")
+                f.write(f"{graph_id}\t{status}\n")
     else:
         with open(log_path, "a", encoding="utf-8") as f:
-            f.write(f"{graph_id}\n")
+            f.write(f"{graph_id}\t{status}\n")
 
 
 def nucleotide_fractions(seq):
@@ -86,7 +107,12 @@ def create_nodes_csv_start(filename):
         writer.writerow(columns)
 
 
-def append_to_csvs(graph_id, adj, filename_edges, filename_nodes, features, wsize=15):
+def append_graph_to_csvs(graph_id, adj, filename_edges, filename_nodes, features, wsize=15, lock=None):
+    """
+    Сразу дозаписывает результат одного graph_id в финальные CSV.
+    Это позволяет безопаснее переживать перезапуски:
+    finished ставим только после записи данных.
+    """
     num_nodes = features.shape[0]
 
     row_sums = adj.sum(axis=1)
@@ -102,12 +128,7 @@ def append_to_csvs(graph_id, adj, filename_edges, filename_nodes, features, wsiz
         feature = identical_fractions(features[old_id]) + [old_id / num_nodes]
         node_rows.append([graph_id, new_index[old_id], *feature])
 
-    with open(filename_nodes, mode="a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerows(node_rows)
-
     src, dst = np.nonzero(np.triu(adj, k=1))
-
     edge_mask = active_mask[src] & active_mask[dst]
     src = src[edge_mask]
     dst = dst[edge_mask]
@@ -121,11 +142,25 @@ def append_to_csvs(graph_id, adj, filename_edges, filename_nodes, features, wsiz
         new_src,
         new_dst,
         weights
-    ])
+    ]).tolist()
 
-    with open(filename_edges, mode="a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerows(edge_rows.tolist())
+    if lock is not None:
+        with lock:
+            with open(filename_nodes, mode="a", newline="", encoding="utf-8") as f_nodes:
+                writer = csv.writer(f_nodes)
+                writer.writerows(node_rows)
+
+            with open(filename_edges, mode="a", newline="", encoding="utf-8") as f_edges:
+                writer = csv.writer(f_edges)
+                writer.writerows(edge_rows)
+    else:
+        with open(filename_nodes, mode="a", newline="", encoding="utf-8") as f_nodes:
+            writer = csv.writer(f_nodes)
+            writer.writerows(node_rows)
+
+        with open(filename_edges, mode="a", newline="", encoding="utf-8") as f_edges:
+            writer = csv.writer(f_edges)
+            writer.writerows(edge_rows)
 
 
 def read_fasta(fasta_path):
@@ -150,29 +185,88 @@ def read_fasta(fasta_path):
             yield header, "".join(seq_parts)
 
 
-def chunk_list(data, n_chunks):
+def cleanup_temp_dir(temp_dir):
     """
-    Делит список data на n_chunks примерно равных частей.
+    При новом запуске удаляем временные файлы прошлого запуска.
     """
-    if not data:
-        return []
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+    os.makedirs(temp_dir, exist_ok=True)
 
-    chunk_size = math.ceil(len(data) / n_chunks)
-    return [data[i:i + chunk_size] for i in range(0, len(data), chunk_size)]
+
+def prepare_output_files(file_nodes, file_edges, processed_log, reset_outputs=False):
+    """
+    Если reset_outputs=True — пересоздаём итоговые CSV.
+    Иначе создаём только если их ещё нет.
+    """
+    if reset_outputs or not os.path.exists(file_nodes):
+        create_nodes_csv_start(file_nodes)
+
+    if reset_outputs or not os.path.exists(file_edges):
+        create_edges_csv_start(file_edges)
+
+    if reset_outputs and os.path.exists(processed_log):
+        os.remove(processed_log)
+
+
+def split_fasta_to_chunk_fastas(fasta_path, temp_dir, n_chunks, finished_ids):
+    """
+    Потоково читает входной FASTA и раскладывает необработанные записи
+    по chunk-*.fasta (round-robin), не держа всё в памяти.
+
+    Возвращает:
+      - chunk_files: список непустых chunk fasta
+      - total_all: всего последовательностей во входном файле
+      - total_remaining: сколько реально нужно обработать
+    """
+    if n_chunks <= 0:
+        raise ValueError("n_chunks должен быть > 0")
+
+    chunk_paths = [os.path.join(temp_dir, f"chunk_{i}.fasta") for i in range(n_chunks)]
+    chunk_counts = [0] * n_chunks
+
+    handles = [open(path, "w", encoding="utf-8") for path in chunk_paths]
+
+    total_all = 0
+    total_remaining = 0
+    chunk_idx = 0
+
+    try:
+        for header, seq in read_fasta(fasta_path):
+            total_all += 1
+            graph_id = header.split("\t")[0]
+
+            if graph_id in finished_ids:
+                continue
+
+            h = handles[chunk_idx]
+            h.write(f">{header}\n{seq}\n")
+
+            chunk_counts[chunk_idx] += 1
+            total_remaining += 1
+            chunk_idx = (chunk_idx + 1) % n_chunks
+    finally:
+        for h in handles:
+            h.close()
+
+    non_empty_chunk_files = []
+    for path, count in zip(chunk_paths, chunk_counts):
+        if count > 0:
+            non_empty_chunk_files.append(path)
+        else:
+            os.remove(path)
+
+    return non_empty_chunk_files, total_all, total_remaining
 
 
 def process_fasta_chunk(args):
-    chunk_id, records, temp_dir, wsize, nmatch, scatter, processed_log, run_id = args
+    chunk_id, chunk_fasta, file_nodes, file_edges, wsize, nmatch, scatter, processed_log = args
 
-    nodes_part = os.path.join(temp_dir, f"nodes_part_{run_id}_{chunk_id}.csv")
-    edges_part = os.path.join(temp_dir, f"edges_part_{run_id}_{chunk_id}.csv")
-
-    create_nodes_csv_start(nodes_part)
-    create_edges_csv_start(edges_part)
-
-    for header, sequence in records:
+    for header, sequence in read_fasta(chunk_fasta):
         sequence = sequence.upper()
         graph_id = header.split("\t")[0]
+
+        append_status(processed_log, graph_id, "started", io_lock)
 
         features, matrix = dotplot(
             sequence,
@@ -182,17 +276,17 @@ def process_fasta_chunk(args):
             scatter=scatter
         )
 
-        append_to_csvs(
+        append_graph_to_csvs(
             graph_id=graph_id,
             features=features,
             adj=matrix,
-            filename_nodes=nodes_part,
-            filename_edges=edges_part,
-            wsize=wsize
+            filename_nodes=file_nodes,
+            filename_edges=file_edges,
+            wsize=wsize,
+            lock=io_lock
         )
 
-
-        append_processed_id(processed_log, graph_id, counter_lock)
+        append_status(processed_log, graph_id, "finished", io_lock)
 
         with counter_lock:
             counter.value += 1
@@ -200,38 +294,7 @@ def process_fasta_chunk(args):
         del sequence, features, matrix
         gc.collect()
 
-    return nodes_part, edges_part
-
-
-def merge_csv_files(part_files, output_file):
-    """
-    Склеивает несколько CSV-файлов в один.
-    Заголовок берётся только из первого файла.
-    """
-    if not part_files:
-        return
-
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-
-    first_file = True
-    with open(output_file, "w", newline="", encoding="utf-8") as fout:
-        writer = csv.writer(fout)
-
-        for part_file in part_files:
-            with open(part_file, "r", newline="", encoding="utf-8") as fin:
-                reader = csv.reader(fin)
-
-                try:
-                    header = next(reader)
-                except StopIteration:
-                    continue
-
-                if first_file:
-                    writer.writerow(header)
-                    first_file = False
-
-                for row in reader:
-                    writer.writerow(row)
+    return chunk_id
 
 
 def create_and_write_graphs_from_fasta_parallel(
@@ -241,6 +304,7 @@ def create_and_write_graphs_from_fasta_parallel(
     nmatch=12,
     scatter=False,
     n_processes=None,
+    reset_outputs=False,
 ):
     if n_processes is None:
         n_processes = max(1, cpu_count() - 1)
@@ -252,58 +316,45 @@ def create_and_write_graphs_from_fasta_parallel(
     temp_dir = os.path.join(output_dir, "tmp_parts")
     processed_log = os.path.join(output_dir, "processed_sequences.log")
 
-    os.makedirs(temp_dir, exist_ok=True)
+    prepare_output_files(file_nodes, file_edges, processed_log, reset_outputs=reset_outputs)
 
-    processed_ids = load_processed_ids(processed_log)
+    finished_ids = load_finished_ids(processed_log)
 
-    records = list(read_fasta(fasta_path))
-    total_all = len(records)
+    # Удаляем времянку прошлого запуска и создаём новую
+    cleanup_temp_dir(temp_dir)
+
+    chunk_files, total_all, total = split_fasta_to_chunk_fastas(
+        fasta_path=fasta_path,
+        temp_dir=temp_dir,
+        n_chunks=n_processes,
+        finished_ids=finished_ids
+    )
 
     if total_all == 0:
         raise ValueError("FASTA-файл пустой")
 
-    records = [
-        (header, seq)
-        for header, seq in records
-        if header.split("\t")[0] not in processed_ids
-    ]
-
-    total = len(records)
     print(f"Всего последовательностей: {total_all}")
-    print(f"Уже обработано: {len(processed_ids)}")
+    print(f"Уже завершено по логу: {len(finished_ids)}")
     print(f"Осталось обработать: {total}")
     print(f"Результаты будут сохранены в: {output_dir}")
 
     if total == 0:
         print("Все последовательности уже обработаны.")
-        node_parts = sorted(glob.glob(os.path.join(temp_dir, "nodes_part_*.csv")))
-        edge_parts = sorted(glob.glob(os.path.join(temp_dir, "edges_part_*.csv")))
-
-        if node_parts:
-            merge_csv_files(node_parts, file_nodes)
-        if edge_parts:
-            merge_csv_files(edge_parts, file_edges)
         return
 
-    chunks = chunk_list(records, n_processes)
-    del records
-    gc.collect()
-
     shared_counter = Value("i", 0)
-    lock = Lock()
-
-    run_id = int(time.time())
+    progress_lock = Lock()
+    shared_io_lock = Lock()
 
     worker_args = [
-        (i, chunk, temp_dir, wsize, nmatch, scatter, processed_log, run_id)
-        for i, chunk in enumerate(chunks)
-        if chunk
+        (i, chunk_fasta, file_nodes, file_edges, wsize, nmatch, scatter, processed_log)
+        for i, chunk_fasta in enumerate(chunk_files)
     ]
 
     with Pool(
-        processes=n_processes,
+        processes=min(n_processes, len(worker_args)),
         initializer=init_worker,
-        initargs=(shared_counter, lock)
+        initargs=(shared_counter, progress_lock, shared_io_lock)
     ) as pool:
         result = pool.map_async(process_fasta_chunk, worker_args)
 
@@ -311,22 +362,16 @@ def create_and_write_graphs_from_fasta_parallel(
             last = 0
             while not result.ready():
                 time.sleep(0.2)
-                with lock:
+                with progress_lock:
                     current = shared_counter.value
                 pbar.update(current - last)
                 last = current
 
-            with lock:
+            with progress_lock:
                 current = shared_counter.value
             pbar.update(current - last)
 
         result.get()
-
-    node_parts = sorted(glob.glob(os.path.join(temp_dir, "nodes_part_*.csv")))
-    edge_parts = sorted(glob.glob(os.path.join(temp_dir, "edges_part_*.csv")))
-
-    merge_csv_files(node_parts, file_nodes)
-    merge_csv_files(edge_parts, file_edges)
 
 
 def parse_args():
@@ -367,6 +412,11 @@ def parse_args():
         required=True,
         help="Количество процессов."
     )
+    parser.add_argument(
+        "--reset-outputs",
+        action="store_true",
+        help="Пересоздать nodes.csv и edges.csv с нуля."
+    )
 
     return parser.parse_args()
 
@@ -381,6 +431,7 @@ def main():
         nmatch=args.nmatch,
         scatter=args.scatter,
         n_processes=args.processes,
+        reset_outputs=args.reset_outputs,
     )
 
 
