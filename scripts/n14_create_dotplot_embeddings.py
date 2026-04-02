@@ -78,26 +78,6 @@ def create_edges_csv_start(filename):
         writer.writerow(["graph_id", "src", "dst", "edge_param"])
 
 
-def append_edges_to_csv(graph_id, adj, node_index_dic, filename, wsize=15):
-    with open(filename, mode="a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        src, dst = np.nonzero(adj)
-
-        for u, v in zip(src, dst):
-            if adj[u].sum() == adj[0][0] or adj[v].sum() == adj[0][0]:
-                continue
-
-            if u not in node_index_dic or v not in node_index_dic:
-                continue
-
-            writer.writerow([
-                graph_id,
-                node_index_dic[u],
-                node_index_dic[v],
-                adj[u][v] / wsize
-            ])
-
-
 def create_nodes_csv_start(filename):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     with open(filename, mode="w", newline="", encoding="utf-8") as f:
@@ -106,29 +86,46 @@ def create_nodes_csv_start(filename):
         writer.writerow(columns)
 
 
-def append_nodes_to_csv(graph_id, features, adj, filename):
-    """
-    Добавляет узлы одного графа в CSV-файл и возвращает словарь:
-    исходный индекс узла -> новый индекс узла.
-    """
-    with open(filename, mode="a", newline="", encoding="utf-8") as f:
+def append_to_csvs(graph_id, adj, filename_edges, filename_nodes, features, wsize=15):
+    num_nodes = features.shape[0]
+
+    row_sums = adj.sum(axis=1)
+    diag = np.diag(adj)
+    active_mask = row_sums != diag
+    active_nodes = np.flatnonzero(active_mask)
+
+    new_index = np.full(num_nodes, -1, dtype=np.int64)
+    new_index[active_nodes] = np.arange(active_nodes.shape[0])
+
+    node_rows = []
+    for old_id in active_nodes:
+        feature = identical_fractions(features[old_id]) + [old_id / num_nodes]
+        node_rows.append([graph_id, new_index[old_id], *feature])
+
+    with open(filename_nodes, mode="a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        num_nodes = features.shape[0]
+        writer.writerows(node_rows)
 
-        node_index = 0
-        node_index_dic = {}
+    src, dst = np.nonzero(np.triu(adj, k=1))
 
-        for node_id in range(num_nodes):
-            if adj[node_id].sum() == adj[0][0]:
-                continue
+    edge_mask = active_mask[src] & active_mask[dst]
+    src = src[edge_mask]
+    dst = dst[edge_mask]
 
-            node_index_dic[node_id] = node_index
-            feature = identical_fractions(features[node_id]) + [node_id / num_nodes]
-            row = [graph_id, node_index] + feature
-            writer.writerow(row)
-            node_index += 1
+    new_src = new_index[src]
+    new_dst = new_index[dst]
+    weights = adj[src, dst] / wsize
 
-    return node_index_dic
+    edge_rows = np.column_stack([
+        np.full(src.shape[0], graph_id),
+        new_src,
+        new_dst,
+        weights
+    ])
+
+    with open(filename_edges, mode="a", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerows(edge_rows.tolist())
 
 
 def read_fasta(fasta_path):
@@ -185,27 +182,22 @@ def process_fasta_chunk(args):
             scatter=scatter
         )
 
-        node_index_dic = append_nodes_to_csv(
+        append_to_csvs(
             graph_id=graph_id,
             features=features,
             adj=matrix,
-            filename=nodes_part
-        )
-
-        append_edges_to_csv(
-            graph_id=graph_id,
-            adj=matrix,
-            node_index_dic=node_index_dic,
-            filename=edges_part,
+            filename_nodes=nodes_part,
+            filename_edges=edges_part,
             wsize=wsize
         )
+
 
         append_processed_id(processed_log, graph_id, counter_lock)
 
         with counter_lock:
             counter.value += 1
 
-        del sequence, features, matrix, node_index_dic
+        del sequence, features, matrix
         gc.collect()
 
     return nodes_part, edges_part
@@ -372,8 +364,8 @@ def parse_args():
     parser.add_argument(
         "--processes",
         type=int,
-        default=None,
-        help="Количество процессов. По умолчанию: cpu_count() - 1."
+        required=True,
+        help="Количество процессов."
     )
 
     return parser.parse_args()
