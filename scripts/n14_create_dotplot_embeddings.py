@@ -243,23 +243,24 @@ def merge_csv_files(part_files, output_file):
 
 def create_and_write_graphs_from_fasta_parallel(
     fasta_path,
-    file_edges,
-    file_nodes,
+    output_dir,
     wsize=15,
     nmatch=12,
     scatter=False,
     n_processes=None,
-    temp_dir=None
 ):
     if n_processes is None:
         n_processes = max(1, cpu_count() - 1)
 
-    if temp_dir is None:
-        temp_dir = os.path.join(os.path.dirname(file_nodes), "tmp_parts")
+    os.makedirs(output_dir, exist_ok=True)
+
+    file_nodes = os.path.join(output_dir, "nodes.csv")
+    file_edges = os.path.join(output_dir, "edges.csv")
+    temp_dir = os.path.join(output_dir, "tmp_parts")
+    processed_log = os.path.join(output_dir, "processed_sequences.log")
 
     os.makedirs(temp_dir, exist_ok=True)
 
-    processed_log = os.path.join(os.path.dirname(file_nodes), "processed_sequences.log")
     processed_ids = load_processed_ids(processed_log)
 
     records = list(read_fasta(fasta_path))
@@ -278,6 +279,7 @@ def create_and_write_graphs_from_fasta_parallel(
     print(f"Всего последовательностей: {total_all}")
     print(f"Уже обработано: {len(processed_ids)}")
     print(f"Осталось обработать: {total}")
+    print(f"Результаты будут сохранены в: {output_dir}")
 
     if total == 0:
         print("Все последовательности уже обработаны.")
@@ -345,14 +347,9 @@ def parse_args():
         help="Путь к входному FASTA-файлу."
     )
     parser.add_argument(
-        "--nodes",
+        "--output-dir",
         required=True,
-        help="Путь к выходному CSV-файлу узлов."
-    )
-    parser.add_argument(
-        "--edges",
-        required=True,
-        help="Путь к выходному CSV-файлу рёбер."
+        help="Каталог, куда будут сохранены nodes.csv, edges.csv, tmp_parts и processed_sequences.log."
     )
     parser.add_argument(
         "--wsize",
@@ -377,11 +374,6 @@ def parse_args():
         default=None,
         help="Количество процессов. По умолчанию: cpu_count() - 1."
     )
-    parser.add_argument(
-        "--temp-dir",
-        default=None,
-        help="Каталог для временных CSV-частей."
-    )
 
     return parser.parse_args()
 
@@ -391,13 +383,11 @@ def main():
 
     create_and_write_graphs_from_fasta_parallel(
         fasta_path=args.fasta,
-        file_edges=args.edges,
-        file_nodes=args.nodes,
+        output_dir=args.output_dir,
         wsize=args.wsize,
         nmatch=args.nmatch,
         scatter=args.scatter,
         n_processes=args.processes,
-        temp_dir=args.temp_dir
     )
 
 
