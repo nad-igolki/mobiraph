@@ -233,7 +233,7 @@ def split_fasta_to_chunk_fastas(fasta_path, temp_dir, n_chunks, finished_ids):
 
     try:
         for header, seq in read_fasta(fasta_path):
-            if len(seq) < 20000:
+            if len(seq) > 20000:
                 continue
             total_all += 1
             graph_id = header.split("\t")[0]
