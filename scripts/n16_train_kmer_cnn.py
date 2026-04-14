@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import pickle
 import warnings
 from collections import Counter
 from pathlib import Path
@@ -30,18 +31,12 @@ def parse_args():
         "--metadata-path",
         type=str,
         required=True,
-        help="Путь к metadata.json."
-    )
-    parser.add_argument(
-        "--min-class-count",
-        type=int,
-        default=50,
-        help="Минимальное количество объектов в классе, чтобы оставить его."
+        help="Путь к hierarchy_sequences.json."
     )
     parser.add_argument(
         "--test-size",
         type=float,
-        default=0.2,
+        default=0.05,
         help="Доля валидационной выборки."
     )
     parser.add_argument(
@@ -63,6 +58,27 @@ def parse_args():
         help="Размер батча."
     )
 
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        required=True,
+        help="Директория для сохранения всех артефактов."
+    )
+
+    parser.add_argument(
+        "--hierarchy-root",
+        type=str,
+        default="",
+        help="Корень для классификации."
+    )
+
+    parser.add_argument(
+        "--train-ids",
+        type=str,
+        required=True,
+        help="Путь к файлу с айдишниками для теста."
+    )
+
     return parser.parse_args()
 
 
@@ -79,10 +95,15 @@ def load_metadata(metadata_path: Path) -> dict:
         return json.load(f)
 
 
+import numpy as np
+import pandas as pd
+
+
 def prepare_data(
     embeddings_df: pd.DataFrame,
     metadata: dict,
-    min_class_count: int,
+    hierarchy_root: str,
+    train_ids: list
 ):
     if "name" not in embeddings_df.columns:
         raise ValueError("В CSV отсутствует колонка 'name'.")
@@ -91,47 +112,39 @@ def prepare_data(
     if not emb_cols:
         raise ValueError("В CSV не найдено колонок, начинающихся с 'emb_'.")
 
+    train_ids_set = set(train_ids)
     sequence_ids = embeddings_df["name"].tolist()
 
-    missing_ids = [seq_id for seq_id in sequence_ids if seq_id not in metadata]
-    if missing_ids:
-        raise KeyError(
-            f"В metadata отсутствуют {len(missing_ids)} id из embeddings. "
-            f"Пример: {missing_ids[:5]}"
-        )
+    indexed_df = embeddings_df.set_index("name")
+    emb_matrix = indexed_df[emb_cols].astype(np.float32)
+    emb_matrix = emb_matrix[~emb_matrix.index.duplicated(keep="first")]
 
-    missing_type_ids = [
-        seq_id for seq_id in sequence_ids
-        if "type" not in metadata[seq_id]
-    ]
-    if missing_type_ids:
-        raise KeyError(
-            f"У некоторых id в metadata отсутствует поле 'type'. "
-            f"Пример: {missing_type_ids[:5]}"
-        )
+    X_list = []
+    y_list = []
 
-    X = embeddings_df[emb_cols].to_numpy(dtype=np.float32)
-    X = X[..., np.newaxis]
-    y = [metadata[seq_id]["type"] for seq_id in sequence_ids]
+    current_meta = metadata
+    for path_part in hierarchy_root.split("\t"):
+        if not path_part:
+            break
+        current_meta = current_meta[path_part]["subs"]
+
+    for class_type, class_info in current_meta.items():
+        valid_ids = [
+            seq_id for seq_id in class_info["sequences"]
+            if seq_id in train_ids_set and seq_id in sequence_ids
+        ]
+        if not valid_ids:
+            continue
+
+        X_list.append(emb_matrix.loc[valid_ids].to_numpy())
+        y_list.extend([class_type] * len(valid_ids))
+
+    X = np.vstack(X_list) if X_list else np.array([])
+    y = np.array(y_list)
 
     counts = Counter(y)
     print("Все классы:")
     print(counts)
-
-    rare_classes = {k: v for k, v in counts.items() if v < min_class_count}
-    print(f"Классы с количеством < {min_class_count}:")
-    print(rare_classes)
-
-    valid_classes = {k for k, v in counts.items() if v >= min_class_count}
-    if not valid_classes:
-        raise ValueError(
-            f"После фильтрации не осталось классов с количеством >= {min_class_count}."
-        )
-
-    mask = np.array([label in valid_classes for label in y], dtype=bool)
-
-    X = X[mask]
-    y = np.array(y, dtype=object)[mask]
 
     print("После фильтрации:")
     print("X:", X.shape)
@@ -178,6 +191,44 @@ def train_model(
     return model, history
 
 
+def save_artifacts(
+    model,
+    label_encoder: LabelEncoder,
+    history,
+    output_dir: Path,
+):
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    model_path = output_dir / "cnn_model.keras"
+    label_encoder_path = output_dir / "label_encoder.pkl"
+    history_path = output_dir / "history.json"
+
+    if hasattr(model, "save") and callable(model.save):
+        model.save(model_path)
+    elif hasattr(model, "model") and hasattr(model.model, "save"):
+        model.model.save(model_path)
+    else:
+        fallback_path = output_dir / "cnn_model.pkl"
+        with open(fallback_path, "wb") as f:
+            import pickle
+            pickle.dump(model, f)
+        print(f"Модель сохранена через pickle: {fallback_path}")
+
+    # LabelEncoder
+    with open(label_encoder_path, "wb") as f:
+        import pickle
+        pickle.dump(label_encoder, f)
+
+    # History
+    history_data = history.history if hasattr(history, "history") else history
+    with open(history_path, "w", encoding="utf-8") as f:
+        json.dump(history_data, f, ensure_ascii=False, indent=2)
+
+    print(f"Модель сохранена: {model_path}")
+    print(f"LabelEncoder сохранён: {label_encoder_path}")
+    print(f"History сохранён: {history_path}")
+
+
 def main():
     warnings.filterwarnings("ignore")
     args = parse_args()
@@ -188,10 +239,15 @@ def main():
     embeddings_df = load_embeddings(embeddings_path)
     metadata = load_metadata(metadata_path)
 
+    path_train_ids = args.train_ids
+    with open(path_train_ids, "r", encoding="utf-8") as f:
+        train_ids = [line.strip() for line in f]
+
     X, y, le = prepare_data(
         embeddings_df=embeddings_df,
         metadata=metadata,
-        min_class_count=args.min_class_count,
+        train_ids=train_ids,
+        hierarchy_root=args.hierarchy_root,
     )
 
     print("embeddings_df shape:", embeddings_df.shape)
@@ -208,6 +264,13 @@ def main():
         random_state=args.random_state,
         epochs=args.epochs,
         batch_size=args.batch_size,
+    )
+
+    save_artifacts(
+        model=model,
+        label_encoder=le,
+        history=history,
+        output_dir=Path(args.output_dir) / args.hierarchy_root if args.hierarchy_root else Path(args.output_dir),
     )
 
     print("Обучение завершено.")
