@@ -4,6 +4,7 @@ import pandas as pd
 import torch
 import dgl
 import numpy as np
+from tqdm import tqdm
 
 from dgl.data import DGLDataset
 from dgl.data.utils import save_graphs, load_graphs, save_info, load_info
@@ -14,7 +15,8 @@ class GraphsFromCSVDataset(DGLDataset):
         self,
         nodes_csv,
         edges_csv,
-        labels_json,
+        metadata_json,
+        hierarchy_root,
         raw_dir=None,
         save_dir=None,
         force_reload=False,
@@ -22,7 +24,20 @@ class GraphsFromCSVDataset(DGLDataset):
     ):
         self.nodes_csv = nodes_csv
         self.edges_csv = edges_csv
-        self.labels_json = labels_json
+        self.metadata_json = metadata_json
+        self.hierarchy_root = hierarchy_root
+        with open(self.metadata_json, "r", encoding="utf-8") as f:
+            self.metadata = json.load(f)
+
+        for path_part in self.hierarchy_root.split("\t"):
+            if not path_part:
+                break
+            self.metadata = self.metadata[path_part]["subs"]
+
+        self.meta = {}
+        for class_type, class_info in self.metadata.items():
+            for seq_id in class_info["sequences"]:
+                self.meta[seq_id] = class_type
 
         super().__init__(
             name="graphs_from_csv",
@@ -33,11 +48,14 @@ class GraphsFromCSVDataset(DGLDataset):
         )
 
     def process(self):
-        nodes_df = pd.read_csv(self.nodes_csv)
-        edges_df = pd.read_csv(self.edges_csv)
-
-        with open(self.labels_json, "r", encoding="utf-8") as f:
-            meta = json.load(f)
+        nodes_df = pd.read_csv(
+            self.nodes_csv,
+            dtype={"graph_id": str, "node_id": np.int64},
+        )
+        edges_df = pd.read_csv(
+            self.edges_csv,
+            dtype={"graph_id": str, "src": np.int64, "dst": np.int64},
+        )
 
         self.graphs = []
         self.graph_ids = []
@@ -45,67 +63,85 @@ class GraphsFromCSVDataset(DGLDataset):
 
         node_feat_cols = [c for c in nodes_df.columns if c not in ["graph_id", "node_id"]]
 
-        # берём только те graph_id, которые есть в nodes, edges и labels
-        graph_ids = sorted(
-            set(nodes_df["graph_id"])
-            .intersection(set(edges_df["graph_id"]))
-            .intersection(set(meta.keys()))
-        )
+        # группировка один раз вместо фильтрации DataFrame в цикле
+        nodes_groups = {str(gid): g for gid, g in nodes_df.groupby("graph_id", sort=False)}
+        edges_groups = {str(gid): g for gid, g in edges_df.groupby("graph_id", sort=False)}
 
-        for graph_id in graph_ids:
-            g_nodes = nodes_df[nodes_df["graph_id"] == graph_id].copy()
-            g_edges = edges_df[edges_df["graph_id"] == graph_id].copy()
+        graph_ids = sorted(set(nodes_groups) & set(edges_groups) & set(self.meta))
 
-            if g_nodes.empty:
-                continue
-            if g_edges.empty:
+        for graph_id in tqdm(graph_ids):
+            g_nodes = nodes_groups[graph_id]
+            g_edges = edges_groups[graph_id]
+
+            if g_nodes.empty or g_edges.empty:
                 continue
 
-            graph_label_name = meta[graph_id]["type"]
-            label_names.append(graph_label_name)
+            # порядок узлов фиксируем по первому появлению, без сортировки
+            unique_node_ids = pd.unique(g_nodes["node_id"])
+            node_id_map = {nid: i for i, nid in enumerate(unique_node_ids)}
 
-            unique_node_ids = sorted(g_nodes["node_id"].unique())
-            node_id_map = {node_id: i for i, node_id in enumerate(unique_node_ids)}
+            src_raw = g_edges["src"].to_numpy()
+            dst_raw = g_edges["dst"].to_numpy()
 
-            edge_node_ids = set(g_edges["src"]).union(set(g_edges["dst"]))
-            missing_nodes = edge_node_ids - set(unique_node_ids)
+            missing_nodes = (set(src_raw) | set(dst_raw)) - set(unique_node_ids)
             if missing_nodes:
                 raise ValueError(
                     f"В графе {graph_id} есть узлы в edges.csv, которых нет в nodes.csv: {missing_nodes}"
                 )
 
-            src = g_edges["src"].map(node_id_map).to_list()
-            dst = g_edges["dst"].map(node_id_map).to_list()
+            # исходные рёбра
+            src = np.fromiter((node_id_map[x] for x in src_raw), dtype=np.int64, count=len(src_raw))
+            dst = np.fromiter((node_id_map[x] for x in dst_raw), dtype=np.int64, count=len(dst_raw))
 
-            g = dgl.graph((src, dst), num_nodes=len(unique_node_ids))
-            g = dgl.to_bidirected(g, copy_ndata=True)
+            # делаем bidirected вручную, без to_bidirected
+            src_full = np.concatenate([src, dst])
+            dst_full = np.concatenate([dst, src])
 
-            g_nodes = g_nodes.sort_values("node_id")
-            node_feats = torch.tensor(g_nodes[node_feat_cols].values, dtype=torch.float32)
+            g = dgl.graph((src_full, dst_full), num_nodes=len(unique_node_ids))
+
+            # признаки узлов в том же порядке, что unique_node_ids
+            g_nodes_indexed = (
+                g_nodes.drop_duplicates("node_id", keep="first")
+                .set_index("node_id")
+                .loc[unique_node_ids]
+                .reset_index()
+            )
+
+            node_feats = torch.from_numpy(
+                g_nodes_indexed[node_feat_cols].to_numpy(dtype=np.float32, copy=False)
+            )
             g.ndata["feat"] = node_feats
-            g.ndata["node_id"] = torch.tensor(g_nodes["node_id"].values, dtype=torch.int64)
+            g.ndata["node_id"] = torch.from_numpy(unique_node_ids.astype(np.int64, copy=False))
 
             if "edge_param" in g_edges.columns:
-                edge_feat = torch.tensor(
-                    g_edges["edge_param"].values, dtype=torch.float32
+                edge_feat = torch.from_numpy(
+                    g_edges["edge_param"].to_numpy(dtype=np.float32, copy=False)
                 ).unsqueeze(1)
 
-                edge_feat = torch.cat([edge_feat, edge_feat], dim=0)
-                g.edata["edge_param"] = edge_feat
+                # фичи для обратных рёбер дублируем в том же порядке
+                edge_feat_full = torch.cat([edge_feat, edge_feat], dim=0)
+
+                if g.num_edges() != edge_feat_full.shape[0]:
+                    raise ValueError(
+                        f"В графе {graph_id} число edge features ({edge_feat_full.shape[0]}) "
+                        f"не совпадает с числом рёбер ({g.num_edges()})"
+                    )
+
+                g.edata["edge_param"] = edge_feat_full
+
+            label_name = self.meta[graph_id]
+            label_names.append(label_name)
 
             self.graphs.append(g)
             self.graph_ids.append(graph_id)
 
-        # кодируем строковые labels в числа
         self.label2id = {label: i for i, label in enumerate(sorted(set(label_names)))}
         self.id2label = {i: label for label, i in self.label2id.items()}
 
-        self.labels = []
-        for graph_id in self.graph_ids:
-            label_name = meta[graph_id]["type"]
-            self.labels.append(self.label2id[label_name])
-
-        self.labels = torch.tensor(self.labels, dtype=torch.long)
+        self.labels = torch.tensor(
+            [self.label2id[self.meta[graph_id]] for graph_id in self.graph_ids],
+            dtype=torch.long,
+        )
 
     def split_idx(
             self,
@@ -194,10 +230,11 @@ class GraphsFromCSVDataset(DGLDataset):
 if __name__ == "__main__":
     import config
     dataset = GraphsFromCSVDataset(
-        nodes_csv=f"{config.DIR_DOTPLOTS}/nodes.csv",
-        edges_csv=f"{config.DIR_DOTPLOTS}/edges.csv",
-        labels_json=f"{config.DIR_REPBASE_PROCESSED}/metadata.json",
-        save_dir=f"{config.DIR_DOTPLOTS}/dgl_dataset",
+        nodes_csv=f"/Users/nad/hse/semester08/mobiraph/data/params_20_16_filter/nodes.csv",
+        edges_csv=f"/Users/nad/hse/semester08/mobiraph/data/params_20_16_filter/edges.csv",
+        metadata_json=f"/Users/nad/hse/semester08/mobiraph/data/n13_repbase_processed/hierarchy_sequences_02.json",
+        hierarchy_root="",
+        save_dir=f"{config.DIR_DOTPLOTS}/dgl_dataset/new",
         force_reload=True,
         verbose=True,
     )

@@ -20,7 +20,6 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Обучение CNN-классификатора на embeddings и metadata."
     )
-
     parser.add_argument(
         "--embeddings-path",
         type=str,
