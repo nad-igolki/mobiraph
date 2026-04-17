@@ -1,0 +1,16 @@
+                      precision    recall  f1-score   support
+
+              Academ     0.0797    0.1341    0.1000        82
+DNA transposon_other     0.1532    0.3617    0.2152       235
+         EnSpm/CACTA     0.3115    0.3109    0.3112       505
+           Harbinger     0.5737    0.3841    0.4601      1044
+            Helitron     0.5513    0.3698    0.4427       668
+             Kolobok     0.2045    0.1281    0.1575       281
+         Mariner/Tc1     0.4616    0.6402    0.5364       592
+                MuDR     0.6052    0.3688    0.4583      1147
+                 hAT     0.5905    0.7993    0.6792      1624
+            piggyBac     0.0674    0.0403    0.0504       149
+
+            accuracy                         0.4810      6327
+           macro avg     0.3599    0.3537    0.3411      6327
+        weighted avg     0.4996    0.4810    0.4726      6327

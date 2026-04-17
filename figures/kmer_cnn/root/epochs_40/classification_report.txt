@@ -1,0 +1,9 @@
+                         precision    recall  f1-score   support
+
+         DNA transposon     0.8813    0.7753    0.8249      6974
+    LTR Retrotransposon     0.8849    0.9421    0.9126     13617
+Non-LTR Retrotransposon     0.8336    0.8216    0.8275      2830
+
+               accuracy                         0.8778     23421
+              macro avg     0.8666    0.8463    0.8550     23421
+           weighted avg     0.8776    0.8778    0.8762     23421
