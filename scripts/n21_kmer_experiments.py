@@ -26,6 +26,7 @@ def prepare_dataset(repo, hierarchy_root: str, sample_ids: list, label_encoder: 
 
     X_list = []
     y_list = []
+    names = []
 
     allowed_classes = set(label_encoder.classes_) if label_encoder is not None else None
 
@@ -43,20 +44,22 @@ def prepare_dataset(repo, hierarchy_root: str, sample_ids: list, label_encoder: 
 
         X_list.append(repo.emb_matrix_df.loc[valid_ids].to_numpy())
         y_list.extend([class_type] * len(valid_ids))
+        names.extend(valid_ids)
 
     X = np.vstack(X_list)
     y_raw = np.array(y_list)
+    names = np.array(names)
 
     if label_encoder is None:
         label_encoder = LabelEncoder()
         y = label_encoder.fit_transform(y_raw)
-        return X, y, y_raw, label_encoder
+        return X, y, names, label_encoder
 
     y = label_encoder.transform(y_raw)
-    return X, y, y_raw
+    return X, y, names
 
 
-def train_model(X, y, epochs: int, batch_size: int, test_size: float, random_state: int):
+def train_model(X, y, epochs: int, batch_size: int, test_size: float, random_state: int, best_model_path: str):
     X_train, X_val, y_train, y_val = train_test_split(
         X,
         y,
@@ -68,7 +71,7 @@ def train_model(X, y, epochs: int, batch_size: int, test_size: float, random_sta
     input_dim = X_train.shape[1]
     class_num = len(np.unique(y))
 
-    model = CNNClassifierModel(input_dim=input_dim, class_num=class_num)
+    model = CNNClassifierModel(input_dim=input_dim, class_num=class_num, best_model_path=best_model_path)
     history = model.train(
         X_train,
         y_train,
@@ -83,15 +86,8 @@ def train_model(X, y, epochs: int, batch_size: int, test_size: float, random_sta
 
 def save_model_artifacts(model, label_encoder, history, output_dir: Path):
     output_dir.mkdir(parents=True, exist_ok=True)
-
-    model_path = output_dir / "cnn_model.keras"
     label_encoder_path = output_dir / "label_encoder.pkl"
     history_path = output_dir / "history.json"
-
-    if hasattr(model, "save"):
-        model.save(model_path)
-    else:
-        model.model.save(model_path)
 
     with open(label_encoder_path, "wb") as f:
         pickle.dump(label_encoder, f)
@@ -103,23 +99,23 @@ def save_model_artifacts(model, label_encoder, history, output_dir: Path):
 
 def predict_with_model(model, X: np.ndarray, batch_size: int = 32):
     if hasattr(model, "model") and hasattr(model.model, "predict"):
-        probs = model.model.predict(X, batch_size=batch_size)
+        logits = model.model.predict(X, batch_size=batch_size)
     elif hasattr(model, "predict"):
-        probs = model.predict(X)
+        logits = model.predict(X)
     else:
         raise AttributeError("У модели нет метода predict().")
 
-    if isinstance(probs, (list, tuple)):
-        probs = probs[0]
+    if isinstance(logits, (list, tuple)):
+        logits = logits[0]
 
-    probs = np.asarray(probs)
+    logits = np.asarray(logits)
 
-    if probs.ndim == 1:
-        y_pred = (probs > 0.5).astype(int)
+    if logits.ndim == 1:
+        y_pred = (logits > 0).astype(int)
     else:
-        y_pred = np.argmax(probs, axis=1)
+        y_pred = np.argmax(logits, axis=1)
 
-    return probs, y_pred
+    return logits, y_pred
 
 
 def evaluate_with_model(model, X: np.ndarray, y: np.ndarray, batch_size: int = 32):
@@ -150,9 +146,11 @@ def evaluate_model(
     model,
     X_test: np.ndarray,
     y_test: np.ndarray,
+    sample_ids,
     label_encoder: LabelEncoder,
     output_dir: Path,
-    batch_size: int = 32,
+    logit_dir: Path,
+    batch_size: int = 32
 ):
     loss, acc = evaluate_with_model(
         model=model,
@@ -161,11 +159,24 @@ def evaluate_model(
         batch_size=batch_size,
     )
 
-    probs, y_pred = predict_with_model(
+    logits, y_pred = predict_with_model(
         model=model,
         X=X_test,
         batch_size=batch_size,
     )
+
+    import pandas as pd
+    class_names = label_encoder.classes_
+
+    df = pd.DataFrame(logits, columns=class_names)
+
+    if sample_ids is not None:
+        df.insert(0, "name", sample_ids)
+
+    df["y_true"] = label_encoder.inverse_transform(y_test)
+    df["y_pred"] = label_encoder.inverse_transform(y_pred)
+
+    df.to_csv(logit_dir / "kmer_cnn.csv", index=False)
 
     y_true_labels = label_encoder.inverse_transform(y_test)
     y_pred_labels = label_encoder.inverse_transform(y_pred)
@@ -195,10 +206,4 @@ def evaluate_model(
 def root_to_dirname(root: str) -> str:
     if root == "":
         return "root"
-    return root.replace(" ", "_").replace("/", "_")
-
-
-def root_to_dirname(root: str) -> str:
-    if root == "":
-        return "root"
-    return root.replace(" ", "_").replace("/", "_")
+    return root

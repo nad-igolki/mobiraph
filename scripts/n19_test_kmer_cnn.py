@@ -12,10 +12,12 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.preprocessing import LabelEncoder
-
 from tensorflow.keras.models import load_model
 
-from scripts.n10_tables_figures_nice import plot_classification_report, plot_confusion_matrix
+from scripts.n10_tables_figures_nice import (
+    plot_classification_report,
+    plot_confusion_matrix,
+)
 
 
 def parse_args():
@@ -26,49 +28,49 @@ def parse_args():
         "--embeddings-path",
         type=str,
         required=True,
-        help="Путь к CSV с embeddings."
+        help="Путь к CSV с embeddings.",
     )
     parser.add_argument(
         "--metadata-path",
         type=str,
         required=True,
-        help="Путь к hierarchy_sequences.json."
+        help="Путь к hierarchy_sequences.json.",
     )
     parser.add_argument(
         "--model-path",
         type=str,
         required=True,
-        help="Путь к сохранённой модели (.keras или .pkl)."
+        help="Путь к сохранённой модели (.keras или .pkl).",
     )
     parser.add_argument(
         "--label-encoder-path",
         type=str,
         required=True,
-        help="Путь к label_encoder.pkl."
+        help="Путь к label_encoder.pkl.",
     )
     parser.add_argument(
         "--test-ids",
         type=str,
         required=True,
-        help="Путь к файлу с id для теста."
+        help="Путь к файлу с id для теста.",
     )
     parser.add_argument(
         "--hierarchy-root",
         type=str,
         default="",
-        help="Корень для классификации."
+        help="Корень для классификации.",
     )
     parser.add_argument(
         "--batch-size",
         type=int,
         default=32,
-        help="Размер батча для predict/evaluate."
+        help="Размер батча для predict/evaluate.",
     )
     parser.add_argument(
         "--plots-dir",
         type=str,
         required=False,
-        help="Директория для сохранения графиков."
+        help="Директория для сохранения графиков и CSV с логитами.",
     )
     return parser.parse_args()
 
@@ -93,7 +95,7 @@ def load_label_encoder(label_encoder_path: Path) -> LabelEncoder:
         return pickle.load(f)
 
 
-def load_test_ids(test_ids_path: Path) -> list:
+def load_test_ids(test_ids_path: Path) -> list[str]:
     if not test_ids_path.exists():
         raise FileNotFoundError(f"Файл с test ids не найден: {test_ids_path}")
     with open(test_ids_path, "r", encoding="utf-8") as f:
@@ -104,7 +106,7 @@ def prepare_data(
     embeddings_df: pd.DataFrame,
     metadata: dict,
     hierarchy_root: str,
-    sample_ids: list,
+    sample_ids: list[str],
     label_encoder: LabelEncoder,
 ):
     if "name" not in embeddings_df.columns:
@@ -115,14 +117,12 @@ def prepare_data(
         raise ValueError("В CSV не найдено колонок, начинающихся с 'emb_'.")
 
     sample_ids_set = set(sample_ids)
-    sequence_ids = embeddings_df["name"].tolist()
 
     indexed_df = embeddings_df.set_index("name")
-    emb_matrix = indexed_df[emb_cols].astype(np.float32)
-    emb_matrix = emb_matrix[~emb_matrix.index.duplicated(keep="first")]
+    indexed_df = indexed_df[~indexed_df.index.duplicated(keep="first")]
 
-    X_list = []
-    y_list = []
+    available_ids = set(indexed_df.index.tolist())
+    emb_matrix = indexed_df[emb_cols].astype(np.float32)
 
     current_meta = metadata
     for path_part in hierarchy_root.split("\t"):
@@ -132,37 +132,44 @@ def prepare_data(
 
     allowed_classes = set(label_encoder.classes_)
 
+    X_list = []
+    y_list = []
+    kept_ids = []
+
     for class_type, class_info in current_meta.items():
         if class_type not in allowed_classes:
             continue
 
         valid_ids = [
-            seq_id for seq_id in class_info["sequences"]
-            if seq_id in sample_ids_set and seq_id in sequence_ids
+            seq_id
+            for seq_id in class_info["sequences"]
+            if seq_id in sample_ids_set and seq_id in available_ids
         ]
+
         if not valid_ids:
             continue
 
         X_list.append(emb_matrix.loc[valid_ids].to_numpy())
         y_list.extend([class_type] * len(valid_ids))
+        kept_ids.extend(valid_ids)
 
     if not X_list:
         raise ValueError("После фильтрации не найдено ни одного тестового объекта.")
 
     X = np.vstack(X_list)
-    y = np.array(y_list)
+    y_raw = np.array(y_list)
+    kept_ids = np.array(kept_ids)
+    y_encoded = label_encoder.transform(y_raw)
 
     print("Все классы в тесте:")
-    print(Counter(y))
-
-    y_encoded = label_encoder.transform(y)
+    print(Counter(y_raw))
 
     print("После фильтрации:")
     print("X:", X.shape)
-    print("y:", y.shape)
-    print("Осталось классов:", len(set(y)))
+    print("y:", y_raw.shape)
+    print("Осталось классов:", len(set(y_raw)))
 
-    return X, y_encoded, y
+    return X, y_encoded, y_raw, kept_ids
 
 
 def load_trained_model(model_path: Path):
@@ -181,18 +188,20 @@ def load_trained_model(model_path: Path):
 
 def predict_with_model(model, X: np.ndarray, batch_size: int = 32):
     if hasattr(model, "predict"):
-        probs = model.predict(X, batch_size=batch_size, verbose=0)
+        logits = model.predict(X, batch_size=batch_size, verbose=0)
     elif hasattr(model, "model") and hasattr(model.model, "predict"):
-        probs = model.model.predict(X, batch_size=batch_size, verbose=0)
+        logits = model.model.predict(X, batch_size=batch_size, verbose=0)
     else:
         raise AttributeError("У модели нет метода predict().")
 
-    if probs.ndim == 1:
-        y_pred = (probs > 0.5).astype(int)
-    else:
-        y_pred = np.argmax(probs, axis=1)
+    logits = np.asarray(logits)
 
-    return probs, y_pred
+    if logits.ndim == 1:
+        y_pred = (logits > 0).astype(int)
+    else:
+        y_pred = np.argmax(logits, axis=1)
+
+    return logits, y_pred
 
 
 def evaluate_model(model, X: np.ndarray, y: np.ndarray, batch_size: int = 32):
@@ -219,6 +228,36 @@ def evaluate_model(model, X: np.ndarray, y: np.ndarray, batch_size: int = 32):
     return loss, acc
 
 
+def save_test_logits_csv(
+    output_dir: Path,
+    sample_ids: np.ndarray,
+    logits: np.ndarray,
+    y_true_labels: np.ndarray,
+    y_pred_labels: np.ndarray,
+    class_names: list[str],
+):
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    logits = np.asarray(logits)
+
+    if logits.ndim == 1:
+        df = pd.DataFrame(
+            {
+                "name": sample_ids,
+                "logit": logits,
+                "y_true": y_true_labels,
+                "y_pred": y_pred_labels,
+            }
+        )
+    else:
+        df = pd.DataFrame(logits, columns=class_names)
+        df.insert(0, "name", sample_ids)
+        df["y_true"] = y_true_labels
+        df["y_pred"] = y_pred_labels
+
+    df.to_csv(output_dir / "test_logits.csv", index=False, encoding="utf-8")
+
+
 def main():
     warnings.filterwarnings("ignore")
     args = parse_args()
@@ -230,7 +269,7 @@ def main():
     model = load_trained_model(Path(args.model_path))
     plots_dir = Path(args.plots_dir) if args.plots_dir else None
 
-    X_test, y_test, y_test_raw = prepare_data(
+    X_test, y_test, y_test_raw, kept_ids = prepare_data(
         embeddings_df=embeddings_df,
         metadata=metadata,
         hierarchy_root=args.hierarchy_root,
@@ -252,44 +291,56 @@ def main():
         batch_size=args.batch_size,
     )
 
-    probs, y_pred = predict_with_model(
+    logits, y_pred = predict_with_model(
         model=model,
         X=X_test,
         batch_size=args.batch_size,
     )
 
-    y_pred_labels = label_encoder.inverse_transform(y_pred)
     y_true_labels = label_encoder.inverse_transform(y_test)
+    y_pred_labels = label_encoder.inverse_transform(y_pred)
+
+    if plots_dir is not None:
+        save_test_logits_csv(
+            output_dir=plots_dir,
+            sample_ids=kept_ids,
+            logits=logits,
+            y_true_labels=y_true_labels,
+            y_pred_labels=y_pred_labels,
+            class_names=list(label_encoder.classes_),
+        )
 
     if loss is not None:
         print(f"Test loss: {loss:.6f}")
     if acc is not None:
         print(f"Test accuracy: {acc:.6f}")
 
+    report_text = classification_report(y_true_labels, y_pred_labels, digits=4)
+
     print("\nClassification report:")
-    print(classification_report(y_true_labels, y_pred_labels, digits=4))
-    if plots_dir:
+    print(report_text)
+
+    if plots_dir is not None:
         plot_classification_report(
             y_true_labels,
             y_pred_labels,
-            save_path=plots_dir / "classification_report_test.png"
+            save_path=plots_dir / "classification_report_test.png",
         )
         plot_confusion_matrix(
             y_true_labels,
             y_pred_labels,
             labels=label_encoder.classes_,
             save_path=plots_dir / "confusion_matrix_test.png",
-            normalize=False
+            normalize=False,
         )
+
+        with open(plots_dir / "classification_report_test.txt", "w", encoding="utf-8") as f:
+            f.write(report_text)
     else:
-        plot_classification_report(
-            y_true_labels,
-            y_pred_labels
-        )
+        plot_classification_report(y_true_labels, y_pred_labels)
 
     print("\nConfusion matrix:")
     print(confusion_matrix(y_true_labels, y_pred_labels, labels=label_encoder.classes_))
-
 
     print("\nКлассы LabelEncoder:")
     print(list(label_encoder.classes_))

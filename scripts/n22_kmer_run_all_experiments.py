@@ -15,21 +15,21 @@ import config
 
 
 EMBEDDINGS_PATH = f"{config.DIR_ALL_SEQUENCES_FILTERED_KMER}/7.csv"
-METADATA_PATH = f"{config.DIR_REPBASE_PROCESSED}/hierarchy_sequences_02_ltr_correction.json"
+METADATA_PATH = f"{config.DIR_REPBASE_PROCESSED}/hierarchy_sequences_02_ltr_correction_with_classes.json"
 TRAIN_IDS_PATH = f"{config.DIR_REPBASE_PROCESSED}/id_train.txt"
 TEST_IDS_PATH = f"{config.DIR_REPBASE_PROCESSED}/id_test.txt"
 
 OUTPUTS_DIR = "/Users/nad/mobiraph/data/n20_kmer_models"
 OUTPUTS_IMAGES_DIR = "/Users/nad/mobiraph/figures/kmer_cnn"
+OUTPUTS_TEST_RESULTS_DIR = "/Users/nad/mobiraph/data/n22_test_results"
 
 HIERARCHY_ROOTS = [
     "",
-    "DNA transposon",
-    "LTR Retrotransposon",
-    "Non-LTR Retrotransposon",
+    "Class I (Retrotransposons)",
+    "Class II (DNA transposons)",
+    "Class I (Retrotransposons)\tLTR Retrotransposon",
+    "Class I (Retrotransposons)\tNon-LTR Retrotransposon",
 ]
-
-EPOCHS_LIST = [10, 20, 30, 40, 50]
 
 BATCH_SIZE = 32
 TEST_SIZE = 0.05
@@ -49,14 +49,14 @@ def main():
         print("=" * 80)
         print("HIERARCHY ROOT:", repr(hierarchy_root))
 
-        X_train_full, y_train_full, _, label_encoder = prepare_dataset(
+        X_train_full, y_train_full, train_names, label_encoder = prepare_dataset(
             repo=repo,
             hierarchy_root=hierarchy_root,
             sample_ids=train_ids,
             label_encoder=None,
         )
 
-        X_test, y_test, _ = prepare_dataset(
+        X_test, y_test, test_names = prepare_dataset(
             repo=repo,
             hierarchy_root=hierarchy_root,
             sample_ids=test_ids,
@@ -68,52 +68,63 @@ def main():
         print("Classes:", len(label_encoder.classes_))
         print(list(label_encoder.classes_))
 
-        for epochs in EPOCHS_LIST:
-            print("-" * 80)
-            print(f"START: root={repr(hierarchy_root)}, epochs={epochs}")
+        print(f"START: root={repr(hierarchy_root)}, epochs={50}")
 
-            model, history = train_model(
-                X=X_train_full,
-                y=y_train_full,
-                epochs=epochs,
-                batch_size=BATCH_SIZE,
-                test_size=TEST_SIZE,
-                random_state=RANDOM_STATE,
-            )
-
-            exp_dir = (
+        exp_dir = (
                 Path(OUTPUTS_DIR)
                 / root_to_dirname(hierarchy_root)
-                / f"epochs_{epochs}"
-            )
-            exp_dir.mkdir(parents=True, exist_ok=True)
+        )
+        exp_dir.mkdir(parents=True, exist_ok=True)
 
-            img_dir = (
-                    Path(OUTPUTS_IMAGES_DIR)
-                    / root_to_dirname(hierarchy_root)
-                    / f"epochs_{epochs}"
-            )
-            img_dir.mkdir(parents=True, exist_ok=True)
+        img_dir = (
+                Path(OUTPUTS_IMAGES_DIR)
+                / root_to_dirname(hierarchy_root)
+        )
+        img_dir.mkdir(parents=True, exist_ok=True)
+
+        logit_dir = (
+                Path(OUTPUTS_TEST_RESULTS_DIR)
+                / root_to_dirname(hierarchy_root)
+        )
+        logit_dir.mkdir(parents=True, exist_ok=True)
+
+        model_path = exp_dir / "cnn_model.keras"
+        if model_path.exists():
+            print(f"SKIP: already exists -> {model_path}")
+            continue
+
+        model, history = train_model(
+            X=X_train_full,
+            y=y_train_full,
+            epochs=50,
+            batch_size=BATCH_SIZE,
+            test_size=TEST_SIZE,
+            random_state=RANDOM_STATE,
+            best_model_path=f"{exp_dir}/cnn_model.keras"
+        )
 
 
-            save_model_artifacts(
-                model=model,
-                label_encoder=label_encoder,
-                history=history,
-                output_dir=exp_dir,
-            )
-            print(f"SAVED artifacts TO: {exp_dir}")
+        save_model_artifacts(
+            model=model,
+            label_encoder=label_encoder,
+            history=history,
+            output_dir=exp_dir,
+        )
+        print(f"SAVED artifacts TO: {exp_dir}")
+        print(set(test_names) - set(test_ids))
+        print(set(test_ids) - set(test_names))
+        report_text = evaluate_model(
+            model=model,
+            X_test=X_test,
+            y_test=y_test,
+            sample_ids=test_names,
+            label_encoder=label_encoder,
+            output_dir=img_dir,
+            logit_dir=logit_dir,
+        )
 
-            report_text = evaluate_model(
-                model=model,
-                X_test=X_test,
-                y_test=y_test,
-                label_encoder=label_encoder,
-                output_dir=img_dir,
-            )
-
-            print(report_text)
-            print(f"SAVED TO: {img_dir}")
+        print(report_text)
+        print(f"SAVED TO: {img_dir} and {logit_dir}")
 
     print("DONE")
 

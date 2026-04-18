@@ -3,10 +3,11 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import ModelCheckpoint
 
 
 class CNNClassifierModel:
-    def __init__(self, input_dim: int, class_num: int):
+    def __init__(self, input_dim: int, class_num: int, best_model_path: str):
         """
         input_dim  — размер входного вектора
         class_num  — количество классов
@@ -14,6 +15,7 @@ class CNNClassifierModel:
         self.input_dim = input_dim
         self.class_num = class_num
         self.model = self._build_model()
+        self.best_model_path = best_model_path
 
     # ---------------------------
     # MODEL DEFINITION
@@ -32,11 +34,11 @@ class CNNClassifierModel:
         model.add(Dropout(0.3))
 
         model.add(Dense(self.class_num,
-                        activation='softmax'))
+                        activation=None))
 
         model.compile(
             optimizer=Adam(learning_rate=0.001),
-            loss='sparse_categorical_crossentropy',
+            loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
             metrics=['accuracy']
         )
 
@@ -54,32 +56,39 @@ class CNNClassifierModel:
         epochs=20,
         batch_size=32
     ):
+        callbacks = []
+
+        if X_val is not None and y_val is not None:
+            checkpoint = ModelCheckpoint(
+                filepath=self.best_model_path,
+                monitor="val_accuracy",
+                mode="max",
+                save_best_only=True,
+                verbose=1
+            )
+            callbacks.append(checkpoint)
 
         history = self.model.fit(
             X_train,
             y_train,
-            validation_data=(X_val, y_val)
-            if X_val is not None else None,
+            validation_data=(X_val, y_val) if X_val is not None else None,
             epochs=epochs,
             batch_size=batch_size,
-            verbose=1
+            verbose=1,
+            callbacks=callbacks
         )
+
+        # после обучения загружаем лучшую сохранённую модель
+        if X_val is not None and y_val is not None:
+            self.model = tf.keras.models.load_model(self.best_model_path)
 
         return history
 
-    # ---------------------------
-    # INFERENCE FUNCTION
-    # ---------------------------
     def predict(self, X):
-
         probs = self.model.predict(X)
         classes = np.argmax(probs, axis=1)
-
         return classes, probs
 
-    # ---------------------------
-    # SAVE / LOAD
-    # ---------------------------
     def save(self, path):
         self.model.save(path)
 
