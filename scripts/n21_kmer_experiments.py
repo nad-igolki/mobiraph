@@ -20,9 +20,20 @@ from scripts.n10_tables_figures_nice import (
 )
 
 
-def prepare_dataset(repo, hierarchy_root: str, sample_ids: list, label_encoder: LabelEncoder = None):
-    sample_ids_set = set(sample_ids)
+def prepare_dataset(repo, hierarchy_root: str, sample_ids: list | None, label_encoder: LabelEncoder = None):
+    sample_ids_set = set(sample_ids) if sample_ids is not None else None
     current_meta = repo.get_meta_node(hierarchy_root)
+
+    # inference-only режим: метадаты нет
+    if current_meta is None:
+        valid_ids = [
+            seq_id for seq_id in repo.emb_matrix_df.index
+            if sample_ids_set is None or seq_id in sample_ids_set
+        ]
+
+        X = repo.emb_matrix_df.loc[valid_ids].to_numpy()
+        names = np.array(valid_ids)
+        return X, None, names
 
     X_list = []
     y_list = []
@@ -36,7 +47,7 @@ def prepare_dataset(repo, hierarchy_root: str, sample_ids: list, label_encoder: 
 
         valid_ids = [
             seq_id for seq_id in class_info["sequences"]
-            if seq_id in sample_ids_set and seq_id in repo.available_ids
+            if (sample_ids_set is None or seq_id in sample_ids_set) and seq_id in repo.available_ids
         ]
 
         if not valid_ids:
@@ -45,6 +56,14 @@ def prepare_dataset(repo, hierarchy_root: str, sample_ids: list, label_encoder: 
         X_list.append(repo.emb_matrix_df.loc[valid_ids].to_numpy())
         y_list.extend([class_type] * len(valid_ids))
         names.extend(valid_ids)
+
+    if not X_list:
+        n_features = repo.emb_matrix_df.shape[1]
+        X = np.empty((0, n_features), dtype=np.float32)
+        names = np.array([])
+        if label_encoder is None:
+            return X, np.array([]), names, LabelEncoder()
+        return X, np.array([]), names
 
     X = np.vstack(X_list)
     y_raw = np.array(y_list)

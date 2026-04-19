@@ -69,7 +69,7 @@ def predict_on_new_data(bundle, base_df: pd.DataFrame, extra_dfs: list[pd.DataFr
     return out
 
 
-results_dir = "/Users/nad/mobiraph/data/n22_test_results"
+results_dir = "/Users/nad/mobiraph/data/n28_sv_insects_results"
 HIERARCHY_ROOTS = [
         "root",
         "Class I (Retrotransposons)",
@@ -92,17 +92,6 @@ for i in range(len(HIERARCHY_ROOTS)):
 
     model_path = f"/Users/nad/mobiraph/data/n24_ensemble_models/train_{hierarchy_root}.pkl"
     bundle = joblib.load(model_path)
-
-# base_df = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/root/hyena_transformer.csv")
-# extra1 = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/root/kmer_cnn.csv")
-# extra2 = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/Class II (DNA transposons)/hyena_transformer.csv")
-# extra3 = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/Class II (DNA transposons)/kmer_cnn.csv")
-# extra4 = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/Class I (Retrotransposons)/hyena_transformer.csv")
-# extra5 = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/Class I (Retrotransposons)/kmer_cnn.csv")
-# extra6 = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/Class I (Retrotransposons)	LTR Retrotransposon/hyena_transformer.csv")
-# extra7 = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/Class I (Retrotransposons)	LTR Retrotransposon/kmer_cnn.csv")
-# extra8 = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/Class I (Retrotransposons)	Non-LTR Retrotransposon/hyena_transformer.csv")
-# extra9 = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/Class I (Retrotransposons)	Non-LTR Retrotransposon/kmer_cnn.csv")
 
 
     preds = predict_on_new_data(

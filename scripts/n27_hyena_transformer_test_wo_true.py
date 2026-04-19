@@ -49,14 +49,13 @@ class TransformerClassifier(nn.Module):
         return self.classifier(x)
 
 
-# path_to_hyena_embedding = f"{config.DIR_HYENA}/hyena_embeddings_1024_and_types.pkl"
-# model_root = "/Users/nad/mobiraph/data/n23_hyena_models"
-# out_root = "/Users/nad/mobiraph/data/n25_train_results"
-path_to_hyena_embedding = f"/Users/nad/mobiraph/data/n19_hyena_models/hyena_embeddings_1024_insects.pkl"
+path_to_hyena_embedding = "/Users/nad/mobiraph/data/n19_hyena_models/hyena_embeddings_1024_insects_30.pkl"
 model_root = "/Users/nad/mobiraph/data/n23_hyena_models"
-out_root = "/Users/nad/mobiraph/data/n28_sv_insects_results"
-# train_ids_path = f"{config.DIR_REPBASE_PROCESSED}/id_train.txt"
+out_root = "/Users/nad/mobiraph/data/n29_sv_insects_results_30"
 train_ids_path = None
+
+# ← ключевое
+METADATA_PATH = None  # или путь
 
 HIERARCHY_ROOTS = [
     "",
@@ -75,64 +74,73 @@ if train_ids_path:
 else:
     selected_names = list(name_to_embedding.keys())
 
-# with open(f"{config.DIR_REPBASE_PROCESSED}/hierarchy_sequences_02_ltr_correction_with_classes.json", "r", encoding="utf-8") as f:
-#     meta = json.load(f)
-with open(f"/Users/nad/mobiraph/data/n26_sv_processed/hierarchy_sequences_sv_insects.json", "r", encoding="utf-8") as f:
-    meta = json.load(f)
+# ← metadata optional
+meta = None
+if METADATA_PATH:
+    with open(METADATA_PATH, "r", encoding="utf-8") as f:
+        meta = json.load(f)
 
-selected_names = [name for name in selected_names if name in name_to_embedding]
+selected_names = [n for n in selected_names if n in name_to_embedding]
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 for hierarchy_root in HIERARCHY_ROOTS:
-    current_meta = meta.copy()
-    for part in hierarchy_root.split("\t"):
-        if part:
-            current_meta = current_meta[part]["subs"]
 
-    name_to_type = {}
-    for class_name, class_dict in current_meta.items():
-        for seq in class_dict["sequences"]:
-            name_to_type[seq] = class_name
+    # --- формирование выборки ---
+    if meta is not None:
+        current_meta = meta.copy()
+        for part in hierarchy_root.split("\t"):
+            if part:
+                current_meta = current_meta[part]["subs"]
 
-    selected_names_root = [name for name in selected_names if name in name_to_type]
+        name_to_type = {
+            seq: class_name
+            for class_name, class_dict in current_meta.items()
+            for seq in class_dict["sequences"]
+        }
 
-    X_train = np.array([name_to_embedding[name] for name in selected_names_root], dtype=np.float32)
-    y_train = np.array([name_to_type[name] for name in selected_names_root])
+        selected_names_root = [n for n in selected_names if n in name_to_type]
+        y_raw = np.array([name_to_type[n] for n in selected_names_root])
+    else:
+        selected_names_root = selected_names
+        y_raw = None
 
+    if not selected_names_root:
+        continue
+
+    X = np.array([name_to_embedding[n] for n in selected_names_root], dtype=np.float32)
+
+    # --- загрузка модели ---
     save_dir = os.path.join(model_root, root_to_dirname(hierarchy_root))
     checkpoint = torch.load(os.path.join(save_dir, "transformer_model.pt"), map_location=device, weights_only=False)
 
     scaler = checkpoint["scaler"]
     label_encoder = checkpoint["label_encoder"]
-    input_dim = checkpoint["input_dim"]
-    num_classes = checkpoint["num_classes"]
 
-    X_train_scaled = scaler.transform(X_train).astype(np.float32)
-    y_train_enc = label_encoder.transform(y_train)
+    X_scaled = scaler.transform(X).astype(np.float32)
 
     model = TransformerClassifier(
-        input_dim=input_dim,
-        num_classes=num_classes,
-        d_model=256,
-        nhead=8,
-        num_layers=3,
-        dim_feedforward=512,
-        dropout=0.1,
+        input_dim=checkpoint["input_dim"],
+        num_classes=checkpoint["num_classes"],
     ).to(device)
 
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
 
+    # --- инференс ---
     with torch.no_grad():
-        logits = model(torch.tensor(X_train_scaled, dtype=torch.float32, device=device)).cpu().numpy()
+        logits = model(torch.tensor(X_scaled, dtype=torch.float32, device=device)).cpu().numpy()
 
     y_pred_enc = logits.argmax(axis=1)
 
     df = pd.DataFrame(logits, columns=label_encoder.classes_)
     df.insert(0, "name", selected_names_root)
-    df["y_true"] = label_encoder.inverse_transform(y_train_enc)
     df["y_pred"] = label_encoder.inverse_transform(y_pred_enc)
+
+    # ← добавляем только если есть
+    if y_raw is not None:
+        y_enc = label_encoder.transform(y_raw)
+        df["y_true"] = label_encoder.inverse_transform(y_enc)
 
     out_dir = os.path.join(out_root, root_to_dirname(hierarchy_root))
     os.makedirs(out_dir, exist_ok=True)

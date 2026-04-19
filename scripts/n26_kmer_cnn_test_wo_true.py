@@ -8,15 +8,12 @@ from scripts.n21_kmer_experiments import prepare_dataset, root_to_dirname
 import config
 
 
-# EMBEDDINGS_PATH = f"{config.DIR_ALL_SEQUENCES_FILTERED_KMER}/7.csv"
-EMBEDDINGS_PATH = f"/Users/nad/mobiraph/data/insects/7.csv"
-# METADATA_PATH = f"{config.DIR_REPBASE_PROCESSED}/hierarchy_sequences_02_ltr_correction_with_classes.json"
-METADATA_PATH = f"/Users/nad/mobiraph/data/n26_sv_processed/hierarchy_sequences_sv_insects.json"
-# TRAIN_IDS_PATH = f"{config.DIR_REPBASE_PROCESSED}/id_train.txt"
+EMBEDDINGS_PATH = "/Users/nad/mobiraph/data/insects/7_30_pieces.csv"
+METADATA_PATH = None
 TRAIN_IDS_PATH = None
 
 OUTPUTS_DIR = "/Users/nad/mobiraph/data/n20_kmer_models"
-OUTPUTS_RESULTS_DIR = "/Users/nad/mobiraph/data/n28_sv_insects_results"
+OUTPUTS_RESULTS_DIR = "/Users/nad/mobiraph/data/n29_sv_insects_results_30"
 
 HIERARCHY_ROOTS = [
     "",
@@ -34,9 +31,8 @@ repo = DataRepo(
     metadata_path=METADATA_PATH,
 )
 
-sample_ids = None
-if TRAIN_IDS_PATH:
-    sample_ids = load_ids(TRAIN_IDS_PATH)
+sample_ids = load_ids(TRAIN_IDS_PATH) if TRAIN_IDS_PATH else None
+has_labels = METADATA_PATH is not None
 
 for HIERARCHY_ROOT in HIERARCHY_ROOTS:
     exp_dir = Path(OUTPUTS_DIR) / root_to_dirname(HIERARCHY_ROOT)
@@ -52,7 +48,7 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
         repo=repo,
         hierarchy_root=HIERARCHY_ROOT,
         sample_ids=sample_ids,
-        label_encoder=label_encoder,
+        label_encoder=label_encoder if has_labels else None,
     )
 
     logits = model.predict(X, batch_size=BATCH_SIZE, verbose=1)
@@ -60,7 +56,9 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
 
     df = pd.DataFrame(logits, columns=label_encoder.classes_)
     df.insert(0, "name", names)
-    df["y_true"] = label_encoder.inverse_transform(y)
     df["y_pred"] = label_encoder.inverse_transform(y_pred_idx)
+
+    if has_labels and y is not None:
+        df["y_true"] = label_encoder.inverse_transform(y)
 
     df.to_csv(out_dir / "kmer_cnn.csv", index=False)

@@ -9,14 +9,17 @@ import pandas as pd
 
 
 class DataRepo:
-    def __init__(self, embeddings_path: str, metadata_path: str):
+    def __init__(self, embeddings_path: str, metadata_path: str | None):
         self.embeddings_path = Path(embeddings_path)
-        self.metadata_path = Path(metadata_path)
+        self.metadata_path = Path(metadata_path) if metadata_path else None
 
         self.embeddings_df = pd.read_csv(self.embeddings_path)
 
-        with open(self.metadata_path, "r", encoding="utf-8") as f:
-            self.metadata = json.load(f)
+        if self.metadata_path:
+            with open(self.metadata_path, "r", encoding="utf-8") as f:
+                self.metadata = json.load(f)
+        else:
+            self.metadata = None
 
         self.emb_cols = [c for c in self.embeddings_df.columns if c.startswith("emb_")]
 
@@ -27,6 +30,9 @@ class DataRepo:
         self.available_ids = set(self.emb_matrix_df.index)
 
     def get_meta_node(self, hierarchy_root: str):
+        if self.metadata is None:
+            return None
+
         if not hierarchy_root:
             return self.metadata
 
