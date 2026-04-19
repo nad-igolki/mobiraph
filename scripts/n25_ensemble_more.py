@@ -58,7 +58,7 @@ def train_on_concatenated_embeddings(
     target_col: str = "y_true",
     test_size: float = 0.2,
     random_state: int = 42,
-    save_path: str = "/Users/nad/mobiraph/data/n24_ensemble_models/model_bundle_class2.pkl",   # <-- путь для сохранения
+    save_path: str = "/Users/nad/mobiraph/data/n24_ensemble_models/test_root.pkl",
 ):
     merged, classes = build_merged_dataset(base_df, extra_dfs)
 
@@ -98,7 +98,7 @@ def train_on_concatenated_embeddings(
         "feature_cols": feature_cols,
     }
 
-    # ---- СОХРАНЕНИЕ ----
+
     joblib.dump(bundle, save_path)
     print(f"Модель сохранена в: {save_path}")
 
@@ -125,23 +125,41 @@ def predict_on_new_data(bundle, base_df: pd.DataFrame, extra_dfs: list[pd.DataFr
 
     return out
 
-extra5 = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/root/hyena_transformer.csv")      # тут есть name, y_true, y_pred
-extra1 = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/root/kmer_cnn.csv")       # тут есть name + любые другие колонки
-extra2 = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/Class II (DNA transposons)/hyena_transformer.csv")
-base_df = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/Class II (DNA transposons)/kmer_cnn.csv")
-extra4 = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/Class I (Retrotransposons)/hyena_transformer.csv")
-extra3 = pd.read_csv("/Users/nad/mobiraph/data/n22_test_results/Class I (Retrotransposons)/kmer_cnn.csv")
+if __name__ == "__main__":
+    results_dir = "/Users/nad/mobiraph/data/n25_train_results"
+    HIERARCHY_ROOTS = [
+        "root",
+        "Class I (Retrotransposons)",
+        "Class II (DNA transposons)",
+        "Class I (Retrotransposons)\tLTR Retrotransposon",
+        "Class I (Retrotransposons)\tNon-LTR Retrotransposon",
+    ]
 
-bundle = train_on_concatenated_embeddings(
-    base_df=base_df,
-    extra_dfs=[extra1, extra2],
-    target_col="y_true"
-)
+    for i in range(len(HIERARCHY_ROOTS)):
+        hierarchy_root = HIERARCHY_ROOTS[i]
+        save_path = f"/Users/nad/mobiraph/data/n24_ensemble_models/train_{hierarchy_root}.pkl"
 
-preds = predict_on_new_data(
-    bundle,
-    base_df=base_df,
-    extra_dfs=[extra1, extra2]
-)
+        base_df = pd.read_csv(f"{results_dir}/{hierarchy_root}/hyena_transformer_train_logits.csv")
+        extra1 = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn_train_logits.csv")
+        extra_dfs = [extra1]
+        for j in range(1, 5):
+            ind_in_hierarchy = (i + j) % 5
+            print(HIERARCHY_ROOTS[ind_in_hierarchy])
+            extra_dfs.append(pd.read_csv(f"{results_dir}/{HIERARCHY_ROOTS[ind_in_hierarchy]}/hyena_transformer_train_logits.csv"))
+            extra_dfs.append(pd.read_csv(f"{results_dir}/{HIERARCHY_ROOTS[ind_in_hierarchy]}/kmer_cnn_train_logits.csv"))
 
-print(preds.head())
+
+        bundle = train_on_concatenated_embeddings(
+            base_df=base_df,
+            extra_dfs=extra_dfs,
+            target_col="y_true",
+            save_path=save_path
+        )
+
+        preds = predict_on_new_data(
+            bundle,
+            base_df=base_df,
+            extra_dfs=extra_dfs
+        )
+
+        print(preds.head())
