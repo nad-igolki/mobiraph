@@ -8,15 +8,15 @@ from scripts.n21_kmer_experiments import prepare_dataset, root_to_dirname
 import config
 
 
-# EMBEDDINGS_PATH = f"{config.DIR_ALL_SEQUENCES_FILTERED_KMER}/7.csv"
-EMBEDDINGS_PATH = f"/Users/nad/mobiraph/data/insects/7.csv"
-# METADATA_PATH = f"{config.DIR_REPBASE_PROCESSED}/hierarchy_sequences_02_ltr_correction_with_classes.json"
-METADATA_PATH = f"/Users/nad/mobiraph/data/n26_sv_processed/hierarchy_sequences_sv_insects.json"
-# TRAIN_IDS_PATH = f"{config.DIR_REPBASE_PROCESSED}/id_train.txt"
-TRAIN_IDS_PATH = None
+EMBEDDINGS_PATH = f"{config.DIR_ALL_SEQUENCES_FILTERED_KMER}/4_5.csv"
+# EMBEDDINGS_PATH = f"/Users/nad/mobiraph/data/insects/7.csv"
+METADATA_PATH = f"{config.DIR_REPBASE_PROCESSED}/hierarchy_sequences_02_ltr_correction_with_classes.json"
+# METADATA_PATH = f"/Users/nad/mobiraph/data/n26_sv_processed/hierarchy_sequences_sv_insects.json"
+TRAIN_IDS_PATH = f"{config.DIR_REPBASE_PROCESSED}/id_train.txt"
+# TRAIN_IDS_PATH = None
 
-OUTPUTS_DIR = "/Users/nad/mobiraph/data/n20_kmer_models"
-OUTPUTS_RESULTS_DIR = "/Users/nad/mobiraph/data/n28_sv_insects_results"
+OUTPUTS_DIR = "/Users/nad/mobiraph/data/n32_kmer_models_4_5"
+OUTPUTS_RESULTS_DIR = "/Users/nad/mobiraph/data/n34_train_results_new"
 
 HIERARCHY_ROOTS = [
     "",

@@ -1,8 +1,8 @@
                             precision    recall  f1-score   support
 
-Class I (Retrotransposons)     0.9083    0.9480    0.9277     16447
-Class II (DNA transposons)     0.8633    0.7742    0.8163      6974
+Class I (Retrotransposons)     0.9462    0.9552    0.9507     16447
+Class II (DNA transposons)     0.8919    0.8720    0.8818      6974
 
-                  accuracy                         0.8962     23421
-                 macro avg     0.8858    0.8611    0.8720     23421
-              weighted avg     0.8949    0.8962    0.8945     23421
+                  accuracy                         0.9304     23421
+                 macro avg     0.9191    0.9136    0.9162     23421
+              weighted avg     0.9300    0.9304    0.9302     23421

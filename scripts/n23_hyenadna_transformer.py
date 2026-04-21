@@ -135,6 +135,18 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
 
     num_classes = len(label_encoder.classes_)
     input_dim = X_train_scaled.shape[1]
+    from sklearn.utils.class_weight import compute_class_weight
+
+    classes = np.unique(y_train_enc)
+    class_weights = compute_class_weight(
+        class_weight='balanced',
+        classes=classes,
+        y=y_train_enc
+    )
+    class_weights = torch.tensor(class_weights, dtype=torch.float32).to(device)
+
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
 
     # Dataset
     class EmbeddingDataset(Dataset):
@@ -165,8 +177,6 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
         dropout=0.1
     ).to(device)
 
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
 
     # Обучение
     num_epochs = 5

@@ -15,12 +15,12 @@ HIERARCHY_ROOTS = [
         "Class I (Retrotransposons)\tLTR Retrotransposon",
         "Class I (Retrotransposons)\tNon-LTR Retrotransposon",
     ]
-results_dir = "/Users/nad/mobiraph/data/n25_train_results"
+results_dir = "/Users/nad/mobiraph/data/n34_train_results_new"
 
 general_df = pd.DataFrame()
 for hierarchy_root in HIERARCHY_ROOTS:
-    df_hyena = pd.read_csv(f"{results_dir}/{hierarchy_root}/hyena_transformer_train_logits.csv")
-    df_kmer = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn_train_logits.csv")
+    df_hyena = pd.read_csv(f"{results_dir}/{hierarchy_root}/hyena_transformer.csv")
+    df_kmer = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn.csv")
     df_hyena = df_hyena.drop('y_pred', axis=1)
     df_hyena = df_hyena.drop('y_true', axis=1)
     df_kmer = df_kmer.drop('y_pred', axis=1)
@@ -53,7 +53,7 @@ general_df['y_true'] = y_true
 general_df['y_true'] = general_df['y_true'].astype(str)
 general_df = general_df[general_df['y_true'] != 'nan']
 
-save_path = f"/Users/nad/mobiraph/data/n30_ensemble_superfamily/train.pkl"
+save_path = f"/Users/nad/mobiraph/data/n30_ensemble_superfamily_new/train.pkl"
 
 
 def train(

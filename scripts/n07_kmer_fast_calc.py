@@ -5,8 +5,8 @@ import multiprocessing as mp
 import config
 from scripts.n04_kmer_statistics import kmer_distribution
 
-FASTA_PATH = "/Users/nad/insect_sv_fam_best.fasta"
-OUTPUT_PATH = "/Users/nad/mobiraph/data/insects"
+FASTA_PATH = "/Users/nad/mobiraph/data/n13_repbase_processed/all_sequences_filtered_02_ltr_correction.fasta"
+OUTPUT_PATH = "/Users/nad/mobiraph/data/n12_all_sequences_kmer"
 
 def read_fasta(path: str):
     name = None
@@ -62,7 +62,7 @@ def process_k(k: int, fasta_path: str, out_dir: str, processes: int | None = Non
 
 
 def main():
-    ks = [7]
+    ks = [4, 5, 6]
     for k in ks:
         process_k(k, FASTA_PATH, OUTPUT_PATH)
 

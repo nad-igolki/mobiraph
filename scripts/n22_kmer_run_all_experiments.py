@@ -19,9 +19,9 @@ METADATA_PATH = f"{config.DIR_REPBASE_PROCESSED}/hierarchy_sequences_02_ltr_corr
 TRAIN_IDS_PATH = f"{config.DIR_REPBASE_PROCESSED}/id_train.txt"
 TEST_IDS_PATH = f"{config.DIR_REPBASE_PROCESSED}/id_test.txt"
 
-OUTPUTS_DIR = "/Users/nad/mobiraph/data/n20_kmer_models"
+OUTPUTS_DIR = "/Users/nad/mobiraph/data/n32_kmer_models_4_5"
 OUTPUTS_IMAGES_DIR = "/Users/nad/mobiraph/figures/kmer_cnn"
-OUTPUTS_TEST_RESULTS_DIR = "/Users/nad/mobiraph/data/n22_test_results"
+OUTPUTS_TEST_RESULTS_DIR = "/Users/nad/mobiraph/data/n31_test_results_new"
 
 HIERARCHY_ROOTS = [
     "",
@@ -96,7 +96,7 @@ def main():
         model, history = train_model(
             X=X_train_full,
             y=y_train_full,
-            epochs=50,
+            epochs=4,
             batch_size=BATCH_SIZE,
             test_size=TEST_SIZE,
             random_state=RANDOM_STATE,

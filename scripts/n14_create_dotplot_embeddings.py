@@ -125,7 +125,7 @@ def append_graph_to_csvs(graph_id, adj, filename_edges, filename_nodes, features
 
     node_rows = []
     for old_id in active_nodes:
-        feature = identical_fractions(features[old_id]) + [old_id / num_nodes]
+        feature = nucleotide_fractions(features[old_id]) + [old_id / num_nodes]
         node_rows.append([graph_id, new_index[old_id], *feature])
 
     src, dst = np.nonzero(np.triu(adj, k=1))

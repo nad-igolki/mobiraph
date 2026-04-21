@@ -52,11 +52,11 @@ class TransformerClassifier(nn.Module):
 # path_to_hyena_embedding = f"{config.DIR_HYENA}/hyena_embeddings_1024_and_types.pkl"
 # model_root = "/Users/nad/mobiraph/data/n23_hyena_models"
 # out_root = "/Users/nad/mobiraph/data/n25_train_results"
-path_to_hyena_embedding = f"/Users/nad/mobiraph/data/n19_hyena_models/hyena_embeddings_1024_insects.pkl"
+path_to_hyena_embedding = f"/Users/nad/mobiraph/data/n19_hyena_models/hyena_embeddings_1024_and_types.pkl"
 model_root = "/Users/nad/mobiraph/data/n23_hyena_models"
-out_root = "/Users/nad/mobiraph/data/n28_sv_insects_results"
-# train_ids_path = f"{config.DIR_REPBASE_PROCESSED}/id_train.txt"
-train_ids_path = None
+out_root = "/Users/nad/mobiraph/data/n34_train_results_new"
+train_ids_path = f"{config.DIR_REPBASE_PROCESSED}/id_train.txt"
+# train_ids_path = None
 
 HIERARCHY_ROOTS = [
     "",
@@ -77,7 +77,7 @@ else:
 
 # with open(f"{config.DIR_REPBASE_PROCESSED}/hierarchy_sequences_02_ltr_correction_with_classes.json", "r", encoding="utf-8") as f:
 #     meta = json.load(f)
-with open(f"/Users/nad/mobiraph/data/n26_sv_processed/hierarchy_sequences_sv_insects.json", "r", encoding="utf-8") as f:
+with open(f"/Users/nad/mobiraph/data/n13_repbase_processed/hierarchy_sequences_02_ltr_correction_with_classes.json", "r", encoding="utf-8") as f:
     meta = json.load(f)
 
 selected_names = [name for name in selected_names if name in name_to_embedding]

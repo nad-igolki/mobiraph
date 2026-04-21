@@ -15,16 +15,16 @@ HIERARCHY_ROOTS = [
         "Class I (Retrotransposons)\tLTR Retrotransposon",
         "Class I (Retrotransposons)\tNon-LTR Retrotransposon",
     ]
-results_dir = "/Users/nad/mobiraph/data/n22_test_results"
+results_dir = "/Users/nad/mobiraph/data/n27_sv_plants_results"
 
 general_df = pd.DataFrame()
 for hierarchy_root in HIERARCHY_ROOTS:
     df_hyena = pd.read_csv(f"{results_dir}/{hierarchy_root}/hyena_transformer.csv")
     df_kmer = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn.csv")
-    df_hyena = df_hyena.drop('y_pred', axis=1)
-    df_hyena = df_hyena.drop('y_true', axis=1)
-    df_kmer = df_kmer.drop('y_pred', axis=1)
-    df_kmer = df_kmer.drop('y_true', axis=1)
+    df_hyena = df_hyena.drop('y_pred', axis=1, errors='ignore')
+    df_hyena = df_hyena.drop('y_true', axis=1, errors='ignore')
+    df_kmer = df_kmer.drop('y_pred', axis=1, errors='ignore')
+    df_kmer = df_kmer.drop('y_true', axis=1, errors='ignore')
     df_both = pd.merge(df_hyena, df_kmer, on='name', how='left')
     if general_df.empty:
         general_df = df_both
@@ -34,13 +34,16 @@ for hierarchy_root in HIERARCHY_ROOTS:
     print(general_df.shape)
 
 import json
-with open("/Users/nad/mobiraph/data/n13_repbase_processed/metadata_03.json", "r", encoding="utf-8") as f:
+with open("/Users/nad/mobiraph/data/n26_sv_processed/sv_plants_category.json", "r", encoding="utf-8") as f:
     metadata = json.load(f)
 
 print(type(metadata))
 
 y_true = []
 for value in general_df['name']:
+    if value not in metadata:
+        y_true.append(np.nan)
+        continue
     if 'superfamily' not in metadata[value]:
         y_true.append(np.nan)
         continue
@@ -138,7 +141,7 @@ for value in res['name']:
     y_class_pred.append(superfamily_to_class[res.loc[res['name'] == value, 'prediction'].iloc[0]])
 res['y_class_pred'] = y_class_pred
 
-
+print(classification_report(res['y_class_true'], res['y_class_pred'], zero_division=0))
 for cls in res['y_class_true'].unique():
     mask = res['y_class_true'] == cls
     acc = (res.loc[mask, 'y_class_true'] == res.loc[mask, 'y_class_pred']).mean()
@@ -148,19 +151,19 @@ for cls in res['y_class_true'].unique():
 
 
 
-def extract_sequences(fasta_file, headers_file, output_file):
-    # Загружаем заголовки
-    with open(headers_file) as f:
-        target_headers = set(line.strip() for line in f if line.strip())
-
-    # Парсим FASTA и пишем совпадения
-    with open(fasta_file) as fin, open(output_file, "w") as fout:
-        write = False
-        for line in fin:
-            if line.startswith(">"):
-                header = line[1:].strip()
-                write = header in target_headers
-            if write:
-                fout.write(line)
-
-extract_sequences("/Users/nad/mobiraph/data/n13_repbase_processed/all_sequences_filtered_02_ltr_correction.fasta", "/Users/nad/mobiraph/data/n13_repbase_processed/id_test.txt", "/Users/nad/mobiraph/data/n13_repbase_processed/all_sequences_filtered_test.fasta")
+# def extract_sequences(fasta_file, headers_file, output_file):
+#     # Загружаем заголовки
+#     with open(headers_file) as f:
+#         target_headers = set(line.strip() for line in f if line.strip())
+#
+#     # Парсим FASTA и пишем совпадения
+#     with open(fasta_file) as fin, open(output_file, "w") as fout:
+#         write = False
+#         for line in fin:
+#             if line.startswith(">"):
+#                 header = line[1:].strip()
+#                 write = header in target_headers
+#             if write:
+#                 fout.write(line)
+#
+# extract_sequences("/Users/nad/mobiraph/data/n13_repbase_processed/all_sequences_filtered_02_ltr_correction.fasta", "/Users/nad/mobiraph/data/n13_repbase_processed/id_test.txt", "/Users/nad/mobiraph/data/n13_repbase_processed/all_sequences_filtered_test.fasta")

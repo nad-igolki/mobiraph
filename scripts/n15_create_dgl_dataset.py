@@ -107,6 +107,9 @@ class GraphsFromCSVDataset(DGLDataset):
                 .reset_index()
             )
 
+            # node_feats = torch.from_numpy(
+            #     g_nodes_indexed[node_feat_cols].iloc[:, -1].to_numpy(dtype=np.float32)
+            # ).unsqueeze(1)
             node_feats = torch.from_numpy(
                 g_nodes_indexed[node_feat_cols].to_numpy(dtype=np.float32, copy=False)
             )
