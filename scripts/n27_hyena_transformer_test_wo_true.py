@@ -49,10 +49,11 @@ class TransformerClassifier(nn.Module):
         return self.classifier(x)
 
 
-path_to_hyena_embedding = "/Users/nad/mobiraph/data/n19_hyena_models/hyena_embeddings_1024_insects_30.pkl"
+path_to_hyena_embedding = "/Users/nad/mobiraph/data/n19_hyena_models/hyena_embeddings_1024_insects.pkl"
 model_root = "/Users/nad/mobiraph/data/n23_hyena_models"
-out_root = "/Users/nad/mobiraph/data/n29_sv_insects_results_30"
+out_root = "/Users/nad/mobiraph/data/n28_sv_insects_results"
 train_ids_path = None
+# train_ids_path = "/Users/nad/mobiraph/data/n13_repbase_processed/id_test.txt"
 
 # ← ключевое
 METADATA_PATH = None  # или путь

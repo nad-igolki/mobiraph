@@ -15,7 +15,7 @@ HIERARCHY_ROOTS = [
         "Class I (Retrotransposons)\tLTR Retrotransposon",
         "Class I (Retrotransposons)\tNon-LTR Retrotransposon",
     ]
-results_dir = "/Users/nad/mobiraph/data/n27_sv_plants_results"
+results_dir = "/Users/nad/mobiraph/data/n29_sv_insects_results_30"
 
 general_df = pd.DataFrame()
 for hierarchy_root in HIERARCHY_ROOTS:
@@ -34,7 +34,7 @@ for hierarchy_root in HIERARCHY_ROOTS:
     print(general_df.shape)
 
 import json
-with open("/Users/nad/mobiraph/data/n26_sv_processed/sv_plants_category.json", "r", encoding="utf-8") as f:
+with open("/Users/nad/mobiraph/data/n26_sv_processed/sv_insects_category_30.json", "r", encoding="utf-8") as f:
     metadata = json.load(f)
 
 print(type(metadata))
@@ -55,7 +55,10 @@ general_df['y_true'] = y_true
 general_df['y_true'] = general_df['y_true'].astype(str)
 general_df = general_df[general_df['y_true'] != 'nan']
 
-model_path = f"/Users/nad/mobiraph/data/n30_ensemble_superfamily/train.pkl"
+
+general_df = general_df.dropna()
+
+model_path = f"/Users/nad/mobiraph/data/n36_ensemble_superfamily_new/XGBClassifier.pkl"
 bundle = joblib.load(model_path)
 
 def predict_on_new_data(bundle, df):

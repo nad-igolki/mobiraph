@@ -14,14 +14,14 @@ from scripts.n21_kmer_experiments import (
 import config
 
 
-EMBEDDINGS_PATH = f"{config.DIR_ALL_SEQUENCES_FILTERED_KMER}/4_5.csv"
+EMBEDDINGS_PATH = f"{config.DIR_ALL_SEQUENCES_FILTERED_KMER}/7.csv"
 METADATA_PATH = f"{config.DIR_REPBASE_PROCESSED}/hierarchy_sequences_02_ltr_correction_with_classes.json"
 TRAIN_IDS_PATH = f"{config.DIR_REPBASE_PROCESSED}/id_train.txt"
 TEST_IDS_PATH = f"{config.DIR_REPBASE_PROCESSED}/id_test.txt"
 
-OUTPUTS_DIR = "/Users/nad/mobiraph/data/n32_kmer_models_4_5"
-OUTPUTS_IMAGES_DIR = "/Users/nad/mobiraph/figures/kmer_cnn"
-OUTPUTS_TEST_RESULTS_DIR = "/Users/nad/mobiraph/data/n31_test_results_new"
+OUTPUTS_DIR = "/Users/nad/mobiraph/data/n20_kmer_models/ft_transformer"
+OUTPUTS_IMAGES_DIR = "/Users/nad/mobiraph/figures/kmer_ft_transformer"
+OUTPUTS_TEST_RESULTS_DIR = "/Users/nad/mobiraph/data/n40_tf_transformer_train_results"
 
 HIERARCHY_ROOTS = [
     "",
@@ -88,7 +88,7 @@ def main():
         )
         logit_dir.mkdir(parents=True, exist_ok=True)
 
-        model_path = exp_dir / "cnn_model.keras"
+        model_path = exp_dir / "best_ft_transformer.keras"
         if model_path.exists():
             print(f"SKIP: already exists -> {model_path}")
             continue
@@ -96,11 +96,11 @@ def main():
         model, history = train_model(
             X=X_train_full,
             y=y_train_full,
-            epochs=4,
+            epochs=2,
             batch_size=BATCH_SIZE,
             test_size=TEST_SIZE,
             random_state=RANDOM_STATE,
-            best_model_path=f"{exp_dir}/cnn_model.keras"
+            best_model_path=f"{exp_dir}/best_ft_transformer.keras"
         )
 
 

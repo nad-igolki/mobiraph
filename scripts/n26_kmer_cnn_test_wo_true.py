@@ -8,12 +8,13 @@ from scripts.n21_kmer_experiments import prepare_dataset, root_to_dirname
 import config
 
 
-EMBEDDINGS_PATH = "/Users/nad/mobiraph/data/insects/7_30_pieces.csv"
+EMBEDDINGS_PATH = "/Users/nad/mobiraph/data/insects/7.csv"
 METADATA_PATH = None
-TRAIN_IDS_PATH = None
+TRAIN_IDS_PATH = "/Users/nad/mobiraph/data/n13_repbase_processed/id_train.txt"
+# TRAIN_IDS_PATH = None
 
-OUTPUTS_DIR = "/Users/nad/mobiraph/data/n20_kmer_models"
-OUTPUTS_RESULTS_DIR = "/Users/nad/mobiraph/data/n29_sv_insects_results_30"
+OUTPUTS_DIR = "/Users/nad/mobiraph/data/n20_kmer_models/ft_transformer"
+OUTPUTS_RESULTS_DIR = "/Users/nad/mobiraph/data/n39_tf_transformer_train_results"
 
 HIERARCHY_ROOTS = [
     "",
