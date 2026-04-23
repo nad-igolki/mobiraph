@@ -3,6 +3,9 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
+from sklearn.utils.class_weight import compute_sample_weight
+from xgboost import XGBClassifier
+
 import joblib
 import numpy as np
 
@@ -17,23 +20,58 @@ HIERARCHY_ROOTS = [
     ]
 results_dir = "/Users/nad/mobiraph/data/n35_train_results"
 
+# general_df = pd.DataFrame()
+# for hierarchy_root in HIERARCHY_ROOTS:
+#     df_hyena = pd.read_csv(f"{results_dir}/{hierarchy_root}/hyena_catboost.csv")
+#     df_kmer = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn.csv")
+#     df_gat = pd.read_csv(f"{results_dir}/{hierarchy_root}/gat.csv")
+#     df_hyena = df_hyena.drop('y_pred', axis=1)
+#     # df_hyena = df_hyena.drop('y_true', axis=1)
+#     df_kmer = df_kmer.drop('y_pred', axis=1)
+#     # df_kmer = df_kmer.drop('y_true', axis=1)
+#     df_gat = df_gat.drop('y_pred', axis=1)
+#     # df_gat = df_gat.drop('y_true', axis=1)
+#     df_both = pd.merge(df_hyena, df_kmer, on='name', how='inner')
+#     df_both = pd.merge(df_both, df_gat, on='name', how='inner')
+#     if general_df.empty:
+#         general_df = df_both
+#     else:
+#         general_df_copy = pd.merge(general_df, df_both, on='name', how='inner', suffixes=('_gen', '_both'))
+#         general_df = general_df_copy
+#     print(general_df.shape)
+
 general_df = pd.DataFrame()
+
 for hierarchy_root in HIERARCHY_ROOTS:
-    df_hyena = pd.read_csv(f"{results_dir}/{hierarchy_root}/hyena_transformer.csv")
+    df_hyena = pd.read_csv(f"{results_dir}/{hierarchy_root}/hyena_catboost.csv")
     df_kmer = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn.csv")
+    df_gat = pd.read_csv(f"{results_dir}/{hierarchy_root}/gat.csv")
+
     df_hyena = df_hyena.drop('y_pred', axis=1)
-    # df_hyena = df_hyena.drop('y_true', axis=1)
     df_kmer = df_kmer.drop('y_pred', axis=1)
-    # df_kmer = df_kmer.drop('y_true', axis=1)
-    df_both = pd.merge(df_hyena, df_kmer, on='name', how='left')
+    df_gat = df_gat.drop('y_pred', axis=1)
+
+    df_hyena = df_hyena.rename(columns={
+        col: f"{col}_hyena_{hierarchy_root}" for col in df_hyena.columns if col != 'name'
+    })
+    df_kmer = df_kmer.rename(columns={
+        col: f"{col}_kmer_{hierarchy_root}" for col in df_kmer.columns if col != 'name'
+    })
+    df_gat = df_gat.rename(columns={
+        col: f"{col}_gat_{hierarchy_root}" for col in df_gat.columns if col != 'name'
+    })
+
+    df_both = pd.merge(df_hyena, df_kmer, on='name', how='inner')
+    df_both = pd.merge(df_both, df_gat, on='name', how='inner')
+
     if general_df.empty:
         general_df = df_both
     else:
-        general_df_copy = pd.merge(general_df, df_both, on='name', how='left')
-        general_df = general_df_copy
+        general_df = pd.merge(general_df, df_both, on='name', how='inner')
+
     print(general_df.shape)
 
-general_df.to_csv('output.csv', index=False)
+# general_df.to_csv('output.csv', index=False)
 
 import json
 with open("/Users/nad/mobiraph/data/n13_repbase_processed/metadata_03.json", "r", encoding="utf-8") as f:
@@ -59,9 +97,9 @@ general_df['y_true'] = general_df['y_true'].astype(str)
 general_df = general_df[general_df['y_true'] != 'nan']
 
 general_df = general_df.dropna()
-general_df.to_csv('output.csv', index=False)
+# general_df.to_csv('output.csv', index=False)
 
-save_path = f"/Users/nad/mobiraph/data/n36_ensemble_superfamily_new/XGBClassifier.pkl"
+save_path = f"/Users/nad/mobiraph/data/n36_ensemble_superfamily_new_new/XGBClassifier.pkl"
 
 
 def train(
@@ -147,22 +185,23 @@ def train(
     # )
     #
     # model.fit(X_train, y_train)
-
-    from sklearn.utils.class_weight import compute_sample_weight
-    from xgboost import XGBClassifier
     sample_weight = compute_sample_weight(
         class_weight="balanced",
         y=y_train
     )
+
     model = XGBClassifier(
         objective="multi:softprob",
         num_class=len(le.classes_),
-        n_estimators=500,
-        max_depth=6,
-        learning_rate=0.05,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        reg_lambda=1.0,
+        n_estimators=2000,  # верхняя граница
+        max_depth=4,  # было 6
+        min_child_weight=5,
+        gamma=0.2,
+        learning_rate=0.03,
+        subsample=0.7,
+        colsample_bytree=0.7,
+        reg_lambda=3.0,
+        reg_alpha=0.5,
         random_state=random_state,
         n_jobs=-1,
         eval_metric="mlogloss"
@@ -171,8 +210,18 @@ def train(
     model.fit(
         X_train,
         y_train,
-        sample_weight=sample_weight
+        sample_weight=sample_weight,
+        eval_set=[(X_test, y_test)],
+        verbose=False
     )
+
+    fi = pd.DataFrame({
+        "feature": feature_cols,
+        "importance": model.feature_importances_
+    }).sort_values("importance", ascending=False)
+
+    print("\nTop features:")
+    print(fi.head(20))
 
     # y_pred_enc = model.predict(X_test)
     # y_pred = le.inverse_transform(y_pred_enc)

@@ -165,7 +165,7 @@ class FTTransformerClassifierModel:
         y_train,
         X_val=None,
         y_val=None,
-        epochs=20,
+        epochs=2,
         batch_size=32
     ):
         callbacks = []

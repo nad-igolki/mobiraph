@@ -14,7 +14,7 @@ from scripts.n21_kmer_experiments import (
 import config
 
 
-EMBEDDINGS_PATH = f"{config.DIR_ALL_SEQUENCES_FILTERED_KMER}/7.csv"
+EMBEDDINGS_PATH = f"{config.DIR_ALL_SEQUENCES_FILTERED_KMER}/4_5.csv"
 METADATA_PATH = f"{config.DIR_REPBASE_PROCESSED}/hierarchy_sequences_02_ltr_correction_with_classes.json"
 TRAIN_IDS_PATH = f"{config.DIR_REPBASE_PROCESSED}/id_train.txt"
 TEST_IDS_PATH = f"{config.DIR_REPBASE_PROCESSED}/id_test.txt"

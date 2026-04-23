@@ -4,13 +4,13 @@ import os
 import pickle
 import numpy as np
 import pandas as pd
-import torch
-import torch.nn as nn
+from catboost import CatBoostClassifier
 
 import config
 
 
 def load_pickle_torch_cpu(path):
+    import torch
     orig = torch.storage._load_from_bytes
     try:
         torch.storage._load_from_bytes = lambda b: torch.load(io.BytesIO(b), map_location="cpu")
@@ -24,38 +24,11 @@ def root_to_dirname(root: str) -> str:
     return "root" if root == "" else root
 
 
-class TransformerClassifier(nn.Module):
-    def __init__(self, input_dim, num_classes, d_model=256, nhead=8, num_layers=3, dim_feedforward=512, dropout=0.1):
-        super().__init__()
-        self.input_proj = nn.Linear(input_dim, d_model)
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=d_model,
-            nhead=nhead,
-            dim_feedforward=dim_feedforward,
-            dropout=dropout,
-            batch_first=True,
-            activation="gelu",
-        )
-        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        self.norm = nn.LayerNorm(d_model)
-        self.classifier = nn.Linear(d_model, num_classes)
-
-    def forward(self, x):
-        x = self.input_proj(x)
-        x = x.unsqueeze(1)
-        x = self.transformer(x)
-        x = x[:, 0, :]
-        x = self.norm(x)
-        return self.classifier(x)
-
-
 path_to_hyena_embedding = "/Users/nad/mobiraph/data/n19_hyena_models/hyena_embeddings_1024_and_types.pkl"
 model_root = "/Users/nad/mobiraph/data/n23_hyena_models"
-out_root = "/Users/nad/mobiraph/data/n41_train_results"
-# train_ids_path = None
-train_ids_path = "/Users/nad/mobiraph/data/n13_repbase_processed/id_train.txt"
+out_root = "/Users/nad/mobiraph/data/n37_test_results"
+train_ids_path = "/Users/nad/mobiraph/data/n13_repbase_processed/id_test.txt"
 
-# ← ключевое
 METADATA_PATH = None  # или путь
 
 HIERARCHY_ROOTS = [
@@ -75,7 +48,6 @@ if train_ids_path:
 else:
     selected_names = list(name_to_embedding.keys())
 
-# ← metadata optional
 meta = None
 if METADATA_PATH:
     with open(METADATA_PATH, "r", encoding="utf-8") as f:
@@ -83,11 +55,8 @@ if METADATA_PATH:
 
 selected_names = [n for n in selected_names if n in name_to_embedding]
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 for hierarchy_root in HIERARCHY_ROOTS:
 
-    # --- формирование выборки ---
     if meta is not None:
         current_meta = meta.copy()
         for part in hierarchy_root.split("\t"):
@@ -111,34 +80,41 @@ for hierarchy_root in HIERARCHY_ROOTS:
 
     X = np.array([name_to_embedding[n] for n in selected_names_root], dtype=np.float32)
 
-    # --- загрузка модели ---
     save_dir = os.path.join(model_root, root_to_dirname(hierarchy_root))
-    checkpoint = torch.load(os.path.join(save_dir, "catboost_model.cbm"), map_location=device, weights_only=False)
+    model_path = os.path.join(save_dir, "catboost_model.cbm")
+    aux_path = os.path.join(save_dir, "catboost_meta.pkl")
+
+    if not os.path.exists(model_path):
+        print(f"Нет модели: {model_path}")
+        continue
+
+    if not os.path.exists(aux_path):
+        print(f"Нет метаданных: {aux_path}")
+        continue
+
+    with open(aux_path, "rb") as f:
+        checkpoint = pickle.load(f)
 
     scaler = checkpoint["scaler"]
     label_encoder = checkpoint["label_encoder"]
 
     X_scaled = scaler.transform(X).astype(np.float32)
 
-    model = TransformerClassifier(
-        input_dim=checkpoint["input_dim"],
-        num_classes=checkpoint["num_classes"],
-    ).to(device)
+    model = CatBoostClassifier()
+    model.load_model(model_path)
 
-    model.load_state_dict(checkpoint["model_state_dict"])
-    model.eval()
+    logits = model.predict(X_scaled, prediction_type="RawFormulaVal")
+    logits = np.asarray(logits)
 
-    # --- инференс ---
-    with torch.no_grad():
-        logits = model(torch.tensor(X_scaled, dtype=torch.float32, device=device)).cpu().numpy()
+    if logits.ndim == 1:
+        logits = logits.reshape(-1, 1)
 
-    y_pred_enc = logits.argmax(axis=1)
+    y_pred_enc = np.argmax(logits, axis=1)
 
-    df = pd.DataFrame(logits, columns=label_encoder.classes_)
+    df = pd.DataFrame(logits, columns=label_encoder.classes_[:logits.shape[1]])
     df.insert(0, "name", selected_names_root)
     df["y_pred"] = label_encoder.inverse_transform(y_pred_enc)
 
-    # ← добавляем только если есть
     if y_raw is not None:
         y_enc = label_encoder.transform(y_raw)
         df["y_true"] = label_encoder.inverse_transform(y_enc)

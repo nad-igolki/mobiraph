@@ -8,7 +8,7 @@ from scripts.n21_kmer_experiments import prepare_dataset, root_to_dirname
 import config
 
 
-EMBEDDINGS_PATH = "/Users/nad/mobiraph/data/insects/7.csv"
+EMBEDDINGS_PATH = "/Users/nad/mobiraph/data/n12_all_sequences_kmer/4_5.csv"
 METADATA_PATH = None
 TRAIN_IDS_PATH = "/Users/nad/mobiraph/data/n13_repbase_processed/id_train.txt"
 # TRAIN_IDS_PATH = None

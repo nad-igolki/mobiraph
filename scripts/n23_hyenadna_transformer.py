@@ -143,12 +143,6 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
         classes=classes,
         y=y_train_enc
     )
-    class_weights = torch.tensor(class_weights, dtype=torch.float32).to(device)
-
-    criterion = nn.CrossEntropyLoss(weight=class_weights)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
-
-    # Dataset
     class EmbeddingDataset(Dataset):
         def __init__(self, X, y):
             self.X = torch.tensor(X, dtype=torch.float32)
@@ -167,6 +161,7 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
     test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Dataset
     model = TransformerClassifier(
         input_dim=input_dim,
         num_classes=num_classes,
@@ -177,6 +172,10 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
         dropout=0.1
     ).to(device)
 
+    class_weights = torch.tensor(class_weights, dtype=torch.float32).to(device)
+
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
 
     # Обучение
     num_epochs = 5

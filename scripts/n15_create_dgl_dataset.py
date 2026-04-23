@@ -191,9 +191,11 @@ class GraphsFromCSVDataset(DGLDataset):
             'test': torch.tensor(test_idx, dtype=torch.long),
         }
 
-
     def __getitem__(self, idx):
-        return self.graphs[idx], self.labels[idx]
+        graph = self.graphs[idx]
+        label = self.labels[idx]
+        graph_id = self.graph_ids[idx]
+        return graph_id, graph, label
 
     def __len__(self):
         return len(self.graphs)

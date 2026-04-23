@@ -15,26 +15,63 @@ HIERARCHY_ROOTS = [
         "Class I (Retrotransposons)\tLTR Retrotransposon",
         "Class I (Retrotransposons)\tNon-LTR Retrotransposon",
     ]
-results_dir = "/Users/nad/mobiraph/data/n29_sv_insects_results_30"
+results_dir = "/Users/nad/mobiraph/data/n37_test_results"
+
+gat_res= "/Users/nad/mobiraph/data/n35_train_results"
+
+# general_df = pd.DataFrame()
+# for hierarchy_root in HIERARCHY_ROOTS:
+#     df_hyena = pd.read_csv(f"{results_dir}/{hierarchy_root}/hyena_catboost.csv")
+#     df_kmer = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn.csv")
+#     df_hyena = df_hyena.drop('y_pred', axis=1, errors='ignore')
+#     df_hyena = df_hyena.drop('y_true', axis=1, errors='ignore')
+#     df_kmer = df_kmer.drop('y_pred', axis=1, errors='ignore')
+#     df_kmer = df_kmer.drop('y_true', axis=1, errors='ignore')
+#     df_gat = pd.read_csv(f"{gat_res}/{hierarchy_root}/gat.csv")
+#     df_gat = df_gat.drop('y_pred', axis=1, errors='ignore')
+#     df_both = pd.merge(df_hyena, df_kmer, on='name', how='inner')
+#     df_both = pd.merge(df_both, df_gat, on='name', how='inner')
+#     if general_df.empty:
+#         general_df = df_both
+#     else:
+#         general_df_copy = pd.merge(general_df, df_both, on='name', how='inner')
+#         general_df = general_df_copy
+#     print(general_df.shape)
 
 general_df = pd.DataFrame()
+
 for hierarchy_root in HIERARCHY_ROOTS:
-    df_hyena = pd.read_csv(f"{results_dir}/{hierarchy_root}/hyena_transformer.csv")
+    df_hyena = pd.read_csv(f"{results_dir}/{hierarchy_root}/hyena_catboost.csv")
     df_kmer = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn.csv")
-    df_hyena = df_hyena.drop('y_pred', axis=1, errors='ignore')
-    df_hyena = df_hyena.drop('y_true', axis=1, errors='ignore')
-    df_kmer = df_kmer.drop('y_pred', axis=1, errors='ignore')
-    df_kmer = df_kmer.drop('y_true', axis=1, errors='ignore')
-    df_both = pd.merge(df_hyena, df_kmer, on='name', how='left')
+    df_gat = pd.read_csv(f"{gat_res}/{hierarchy_root}/gat.csv")
+
+    df_hyena = df_hyena.drop(['y_pred', 'y_true'], axis=1, errors='ignore')
+    df_kmer = df_kmer.drop(['y_pred', 'y_true'], axis=1, errors='ignore')
+    df_gat = df_gat.drop(['y_pred', 'y_true'], axis=1, errors='ignore')
+
+    # уникализируем колонки
+    df_hyena = df_hyena.rename(columns={
+        col: f"{col}_hyena_{hierarchy_root}" for col in df_hyena.columns if col != 'name'
+    })
+    df_kmer = df_kmer.rename(columns={
+        col: f"{col}_kmer_{hierarchy_root}" for col in df_kmer.columns if col != 'name'
+    })
+    df_gat = df_gat.rename(columns={
+        col: f"{col}_gat_{hierarchy_root}" for col in df_gat.columns if col != 'name'
+    })
+
+    df_both = pd.merge(df_hyena, df_kmer, on='name', how='inner')
+    df_both = pd.merge(df_both, df_gat, on='name', how='inner')
+
     if general_df.empty:
         general_df = df_both
     else:
-        general_df_copy = pd.merge(general_df, df_both, on='name', how='left')
-        general_df = general_df_copy
+        general_df = pd.merge(general_df, df_both, on='name', how='inner')
+
     print(general_df.shape)
 
 import json
-with open("/Users/nad/mobiraph/data/n26_sv_processed/sv_insects_category_30.json", "r", encoding="utf-8") as f:
+with open("/Users/nad/mobiraph/data/n13_repbase_processed/metadata_03.json", "r", encoding="utf-8") as f:
     metadata = json.load(f)
 
 print(type(metadata))
@@ -55,10 +92,9 @@ general_df['y_true'] = y_true
 general_df['y_true'] = general_df['y_true'].astype(str)
 general_df = general_df[general_df['y_true'] != 'nan']
 
-
 general_df = general_df.dropna()
 
-model_path = f"/Users/nad/mobiraph/data/n36_ensemble_superfamily_new/XGBClassifier.pkl"
+model_path = f"/Users/nad/mobiraph/data/n36_ensemble_superfamily_new_new/XGBClassifier.pkl"
 bundle = joblib.load(model_path)
 
 def predict_on_new_data(bundle, df):

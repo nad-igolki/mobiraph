@@ -116,7 +116,7 @@ def train_model(X, y, epochs: int, batch_size: int, test_size: float, random_sta
     history = model.train(
         X_train, y_train,
         X_val=X_val, y_val=y_val,
-        epochs=20,
+        epochs=2,
         batch_size=64
     )
 
