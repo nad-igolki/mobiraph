@@ -91,34 +91,34 @@ def train_model(X, y, epochs: int, batch_size: int, test_size: float, random_sta
     input_dim = X_train.shape[1]
     class_num = len(np.unique(y))
 
-    # model = CNNClassifierModel(input_dim=input_dim, class_num=class_num, best_model_path=best_model_path)
-    # history = model.train(
-    #     X_train,
-    #     y_train,
-    #     X_val=X_val,
-    #     y_val=y_val,
-    #     epochs=epochs,
-    #     batch_size=batch_size,
-    # )
-
-    model = FTTransformerClassifierModel(
-        input_dim=X_train.shape[1],
-        class_num=len(np.unique(y_train)),
-        best_model_path="best_ft_transformer.keras",
-        d_token=64,
-        num_heads=8,
-        ff_dim=128,
-        num_transformer_blocks=3,
-        dropout=0.2,
-        learning_rate=1e-3,
-    )
-
+    model = CNNClassifierModel(input_dim=input_dim, class_num=class_num, best_model_path=best_model_path)
     history = model.train(
-        X_train, y_train,
-        X_val=X_val, y_val=y_val,
-        epochs=2,
-        batch_size=64
+        X_train,
+        y_train,
+        X_val=X_val,
+        y_val=y_val,
+        epochs=epochs,
+        batch_size=batch_size,
     )
+
+    # model = FTTransformerClassifierModel(
+    #     input_dim=X_train.shape[1],
+    #     class_num=len(np.unique(y_train)),
+    #     best_model_path="best_ft_transformer.keras",
+    #     d_token=64,
+    #     num_heads=8,
+    #     ff_dim=128,
+    #     num_transformer_blocks=3,
+    #     dropout=0.2,
+    #     learning_rate=1e-3,
+    # )
+    #
+    # history = model.train(
+    #     X_train, y_train,
+    #     X_val=X_val, y_val=y_val,
+    #     epochs=2,
+    #     batch_size=64
+    # )
 
     # pred_classes, logits = model.predict(X_test)
 

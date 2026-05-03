@@ -8,13 +8,13 @@ from scripts.n21_kmer_experiments import prepare_dataset, root_to_dirname
 import config
 
 
-EMBEDDINGS_PATH = "/Users/nad/mobiraph/data/n12_all_sequences_kmer/4_5.csv"
+EMBEDDINGS_PATH = "/Users/nad/mobiraph/data/n12_all_sequences_kmer/4_30_merged.csv"
 METADATA_PATH = None
-TRAIN_IDS_PATH = "/Users/nad/mobiraph/data/n13_repbase_processed/id_train.txt"
+TRAIN_IDS_PATH = "/Users/nad/mobiraph/data/n13_repbase_processed/id_test.txt"
 # TRAIN_IDS_PATH = None
 
-OUTPUTS_DIR = "/Users/nad/mobiraph/data/n20_kmer_models/ft_transformer"
-OUTPUTS_RESULTS_DIR = "/Users/nad/mobiraph/data/n39_tf_transformer_train_results"
+OUTPUTS_DIR = "/Users/nad/mobiraph/data/n44_kmer_20_models/4mer_30"
+OUTPUTS_RESULTS_DIR = "/Users/nad/mobiraph/data/n37_test_results"
 
 HIERARCHY_ROOTS = [
     "",
@@ -62,4 +62,4 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
     if has_labels and y is not None:
         df["y_true"] = label_encoder.inverse_transform(y)
 
-    df.to_csv(out_dir / "kmer_cnn.csv", index=False)
+    df.to_csv(out_dir / "kmer_cnn_30.csv", index=False)
