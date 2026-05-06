@@ -3,8 +3,10 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Conv1D, Flatten, Input
 from tensorflow.keras.metrics import Precision, Recall
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam, AdamW
 from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.layers import Dense, Dropout, Conv1D, Flatten, Input, Concatenate, LayerNormalization, BatchNormalization
+from tensorflow.keras.models import Model
 
 
 class CNNClassifierModel:
@@ -27,26 +29,50 @@ class CNNClassifierModel:
 
         model.add(Input(shape=(self.input_dim, 1)))
 
-        model.add(Conv1D(filters=64, kernel_size=3, activation='relu'))
-        model.add(Conv1D(filters=128, kernel_size=3, activation='relu'))
+        model.add(Conv1D(filters=32, kernel_size=7, activation='relu'))
+        model.add(Conv1D(filters=32, kernel_size=7, activation='relu'))
+        model.add(Conv1D(filters=32, kernel_size=7, activation='relu'))
 
         model.add(Dropout(0.5))
 
-        # flatten + dense(128)
         model.add(Flatten())
-        model.add(Dense(128, activation='relu'))
 
-        model.add(Dense(self.class_num, activation=None))
+        model.add(Dense(128, activation='relu'))
+        model.add(Dropout(0.5))
+
+        model.add(Dense(self.class_num, activation='softmax'))
 
         model.compile(
             optimizer=Adam(learning_rate=0.001),
-            loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-            metrics=[
-                'accuracy'
-            ]
+            loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+            metrics=['accuracy']
         )
 
         return model
+
+    # def _build_model(self):
+    #
+    #     model = Sequential()
+    #
+    #     model.add(Dense(128,
+    #                     activation='relu',
+    #                     input_shape=(self.input_dim,)))
+    #
+    #     model.add(Dropout(0.5))
+    #
+    #     model.add(Dense(64, activation='relu'))
+    #     model.add(Dropout(0.3))
+    #
+    #     model.add(Dense(self.class_num,
+    #                     activation='softmax'))
+    #
+    #     model.compile(
+    #         optimizer=Adam(learning_rate=0.001),
+    #         loss='sparse_categorical_crossentropy',
+    #         metrics=['accuracy']
+    #     )
+    #
+    #     return model
 
     # ---------------------------
     # TRAIN FUNCTION

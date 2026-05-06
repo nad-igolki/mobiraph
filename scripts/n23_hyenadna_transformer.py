@@ -44,7 +44,8 @@ HIERARCHY_ROOTS = [
 
 # Transformer classifier
 class TransformerClassifier(nn.Module):
-    def __init__(self, input_dim, num_classes, d_model=256, nhead=8, num_layers=3, dim_feedforward=512, dropout=0.1):
+    def __init__(self, input_dim, num_classes, d_model=256, nhead=8,
+                 num_layers=3, dim_feedforward=512, dropout=0.1, seq_len=4):
         super().__init__()
 
         self.input_proj = nn.Linear(input_dim, d_model)
@@ -57,18 +58,32 @@ class TransformerClassifier(nn.Module):
             batch_first=True,
             activation='gelu'
         )
-        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
-        self.norm = nn.LayerNorm(d_model)
-        self.classifier = nn.Linear(d_model, num_classes)
+        self.transformer = nn.TransformerEncoder(
+            encoder_layer,
+            num_layers=num_layers
+        )
 
+        self.norm = nn.LayerNorm(d_model * seq_len)
+        self.classifier = nn.Linear(d_model * seq_len, num_classes)
+
+    # def forward(self, x):
+    #     # x: [batch, input_dim]
+    #     x = self.input_proj(x)          # [batch, d_model]
+    #     x = x.unsqueeze(1)              # [batch, 1, d_model]
+    #     x = self.transformer(x)         # [batch, 1, d_model]
+    #     x = x[:, 0, :]                  # [batch, d_model]
+    #     x = self.norm(x)
+    #     logits = self.classifier(x)
+    #     return logits
     def forward(self, x):
-        # x: [batch, input_dim]
-        x = self.input_proj(x)          # [batch, d_model]
-        x = x.unsqueeze(1)              # [batch, 1, d_model]
-        x = self.transformer(x)         # [batch, 1, d_model]
-        x = x[:, 0, :]                  # [batch, d_model]
+        # x: [batch, 4, 256]
+        x = self.input_proj(x)  # [batch, 4, d_model]
+        x = self.transformer(x)  # [batch, 4, d_model]
+
+        x = x.flatten(start_dim=1)   # pooling лучше чем x[:,0,:]
         x = self.norm(x)
+
         logits = self.classifier(x)
         return logits
 
@@ -88,7 +103,7 @@ with open(f'{config.DIR_REPBASE_PROCESSED}/hierarchy_sequences_02_ltr_correction
 for HIERARCHY_ROOT in HIERARCHY_ROOTS:
     print('-' * 20, HIERARCHY_ROOT, '-' * 20)
 
-    save_dir = f"/Users/nad/mobiraph/data/n23_hyena_models/{root_to_dirname(HIERARCHY_ROOT)}"
+    save_dir = f"/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/hyena/{root_to_dirname(HIERARCHY_ROOT)}"
     model_path = os.path.join(save_dir, "transformer_model.pt")
 
     if os.path.exists(model_path):
@@ -105,10 +120,10 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
         for seq in class_dict["sequences"]:
             name_to_type[seq] = class_name
 
-    with open(f'{config.DIR_REPBASE_PROCESSED}/id_train.txt', 'r', encoding='utf-8') as file:
+    with open(f'/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/id_train_with_superfamilies.txt', 'r', encoding='utf-8') as file:
         names_train = [line.strip() for line in file]
 
-    with open(f'{config.DIR_REPBASE_PROCESSED}/id_test.txt', 'r', encoding='utf-8') as file:
+    with open(f'/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/id_test_with_superfamilies.txt', 'r', encoding='utf-8') as file:
         names_test = [line.strip() for line in file]
 
     train_filtered_root = [name for name in train_filtered if name in name_to_type]
@@ -127,6 +142,8 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train).astype(np.float32)
     X_test_scaled = scaler.transform(X_test).astype(np.float32)
+    X_train_scaled = X_train_scaled.reshape(-1, 4, 256)
+    X_test_scaled = X_test_scaled.reshape(-1, 4, 256)
 
     # Кодирование меток
     label_encoder = LabelEncoder()
@@ -163,11 +180,11 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # Dataset
     model = TransformerClassifier(
-        input_dim=input_dim,
+        input_dim=256,
         num_classes=num_classes,
         d_model=256,
         nhead=8,
-        num_layers=3,
+        num_layers=1,
         dim_feedforward=512,
         dropout=0.1
     ).to(device)
@@ -178,7 +195,7 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
 
     # Обучение
-    num_epochs = 5
+    num_epochs = 8
 
     for epoch in range(num_epochs):
         model.train()
@@ -199,7 +216,7 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
         avg_loss = train_loss / len(train_loader)
         print(f"Epoch {epoch + 1}/{num_epochs}, loss={avg_loss:.4f}")
 
-    save_dir = f"/Users/nad/mobiraph/data/n23_hyena_models/{root_to_dirname(HIERARCHY_ROOT)}"
+    save_dir = f"/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/hyena/{root_to_dirname(HIERARCHY_ROOT)}"
     os.makedirs(save_dir, exist_ok=True)
 
     torch.save({
@@ -241,7 +258,7 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
     df_logits["y_true"] = all_true_labels
     df_logits["y_pred"] = all_preds_labels
 
-    logit_dir = f"/Users/nad/mobiraph/data/n22_test_results/{root_to_dirname(HIERARCHY_ROOT)}"
+    logit_dir = f"/Users/nad/mobiraph/data/n22_test_results_new/{root_to_dirname(HIERARCHY_ROOT)}"
     os.makedirs(logit_dir, exist_ok=True)
 
     df_logits.to_csv(f"{logit_dir}/hyena_transformer.csv", index=False)

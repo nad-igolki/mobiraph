@@ -14,14 +14,14 @@ from scripts.n21_kmer_experiments import (
 import config
 
 
-EMBEDDINGS_PATH = f"{config.DIR_ALL_SEQUENCES_FILTERED_KMER}/4_30_merged.csv"
+EMBEDDINGS_PATH = f"{config.DIR_ALL_SEQUENCES_FILTERED_KMER}/1_2_3.csv"
 METADATA_PATH = f"{config.DIR_REPBASE_PROCESSED}/hierarchy_sequences_02_ltr_correction_with_classes.json"
-TRAIN_IDS_PATH = f"{config.DIR_REPBASE_PROCESSED}/id_train.txt"
-TEST_IDS_PATH = f"{config.DIR_REPBASE_PROCESSED}/id_test.txt"
+TRAIN_IDS_PATH = f"/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/id_train_with_superfamilies.txt"
+TEST_IDS_PATH = f"/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/id_test_with_superfamilies.txt"
 
-OUTPUTS_DIR = "/Users/nad/mobiraph/data/n44_kmer_20_models/4mer_30"
-OUTPUTS_IMAGES_DIR = "/Users/nad/mobiraph/figures/kmer_ft_transformer"
-OUTPUTS_TEST_RESULTS_DIR = "/Users/nad/mobiraph/data/n40_tf_transformer_train_results"
+OUTPUTS_DIR = "/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/1_2_3_mer_cnns"
+OUTPUTS_IMAGES_DIR = "/Users/nad/mobiraph/figures/kmer_1_2_3_mer"
+OUTPUTS_TEST_RESULTS_DIR = "/Users/nad/mobiraph/data/n40_tf_transformer_train_results4"
 
 HIERARCHY_ROOTS = [
     "",
@@ -111,8 +111,8 @@ def main():
             output_dir=exp_dir,
         )
         print(f"SAVED artifacts TO: {exp_dir}")
-        print(set(test_names) - set(test_ids))
-        print(set(test_ids) - set(test_names))
+        # print(set(test_names) - set(test_ids))
+        # print(set(test_ids) - set(test_names))
         report_text = evaluate_model(
             model=model,
             X_test=X_test,

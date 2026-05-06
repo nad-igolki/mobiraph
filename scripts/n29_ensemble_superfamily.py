@@ -18,7 +18,7 @@ HIERARCHY_ROOTS = [
         "Class I (Retrotransposons)\tLTR Retrotransposon",
         "Class I (Retrotransposons)\tNon-LTR Retrotransposon",
     ]
-results_dir = "/Users/nad/mobiraph/data/n35_train_results"
+results_dir = "/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/train_logits"
 
 # general_df = pd.DataFrame()
 # for hierarchy_root in HIERARCHY_ROOTS:
@@ -45,11 +45,17 @@ general_df = pd.DataFrame()
 for hierarchy_root in HIERARCHY_ROOTS:
     df_hyena = pd.read_csv(f"{results_dir}/{hierarchy_root}/hyena_catboost.csv")
     df_kmer = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn.csv")
-    df_gat = pd.read_csv(f"{results_dir}/{hierarchy_root}/gat.csv")
+    # df_gat = pd.read_csv(f"{results_dir}/{hierarchy_root}/gat.csv")
+    df_20 = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn_20.csv")
+    df_30 = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn_30.csv")
+    df_123 = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn_123.csv")
 
     df_hyena = df_hyena.drop('y_pred', axis=1)
     df_kmer = df_kmer.drop('y_pred', axis=1)
-    df_gat = df_gat.drop('y_pred', axis=1)
+    df_20 = df_20.drop('y_pred', axis=1)
+    df_30 = df_30.drop('y_pred', axis=1)
+    df_123 = df_123.drop('y_pred', axis=1)
+    # df_gat = df_gat.drop('y_pred', axis=1)
 
     df_hyena = df_hyena.rename(columns={
         col: f"{col}_hyena_{hierarchy_root}" for col in df_hyena.columns if col != 'name'
@@ -57,12 +63,24 @@ for hierarchy_root in HIERARCHY_ROOTS:
     df_kmer = df_kmer.rename(columns={
         col: f"{col}_kmer_{hierarchy_root}" for col in df_kmer.columns if col != 'name'
     })
-    df_gat = df_gat.rename(columns={
-        col: f"{col}_gat_{hierarchy_root}" for col in df_gat.columns if col != 'name'
+    # df_gat = df_gat.rename(columns={
+    #     col: f"{col}_gat_{hierarchy_root}" for col in df_gat.columns if col != 'name'
+    # })
+    df_20 = df_20.rename(columns={
+        col: f"{col}_20_{hierarchy_root}" for col in df_20.columns if col != 'name'
+    })
+    df_30 = df_30.rename(columns={
+        col: f"{col}_30_{hierarchy_root}" for col in df_30.columns if col != 'name'
+    })
+    df_123 = df_123.rename(columns={
+        col: f"{col}_30_{hierarchy_root}" for col in df_123.columns if col != 'name'
     })
 
     df_both = pd.merge(df_hyena, df_kmer, on='name', how='inner')
-    df_both = pd.merge(df_both, df_gat, on='name', how='inner')
+    # df_both = pd.merge(df_both, df_gat, on='name', how='inner')
+    df_both = pd.merge(df_both, df_20, on='name', how='inner')
+    df_both = pd.merge(df_both, df_30, on='name', how='inner')
+    df_both = pd.merge(df_both, df_123, on='name', how='inner')
 
     if general_df.empty:
         general_df = df_both
@@ -81,16 +99,16 @@ print(type(metadata))
 
 y_true = []
 for value in general_df['name']:
-    if value not in metadata:
-        y_true.append(np.nan)
-        continue
-    if 'superfamily' not in metadata[value]:
-        y_true.append(np.nan)
-        continue
-    if metadata[value]['superfamily'] in ["Academ", "DNA transposon_other", "Kolobok", "Troyka", "Non-LTR Retrotransposon_other", "piggyBac"]:
-        y_true.append(np.nan)
-    else:
-        y_true.append(metadata[value]['superfamily'])
+    # if value not in metadata:
+    #     y_true.append(np.nan)
+    #     continue
+    # if 'superfamily' not in metadata[value]:
+    #     y_true.append(np.nan)
+    #     continue
+    # if metadata[value]['superfamily'] in ["Academ", "DNA transposon_other", "Kolobok", "Troyka", "Non-LTR Retrotransposon_other", "piggyBac"]:
+    #     y_true.append(np.nan)
+    # else:
+    y_true.append(metadata[value]['superfamily'])
 
 general_df['y_true'] = y_true
 general_df['y_true'] = general_df['y_true'].astype(str)
@@ -99,7 +117,7 @@ general_df = general_df[general_df['y_true'] != 'nan']
 general_df = general_df.dropna()
 # general_df.to_csv('output.csv', index=False)
 
-save_path = f"/Users/nad/mobiraph/data/n36_ensemble_superfamily_new_new/XGBClassifier.pkl"
+save_path = f"/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/ensemble_model/XGBClassifier.pkl"
 
 
 def train(

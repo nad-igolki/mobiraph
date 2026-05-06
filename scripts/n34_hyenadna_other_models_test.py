@@ -24,10 +24,11 @@ def root_to_dirname(root: str) -> str:
     return "root" if root == "" else root
 
 
-path_to_hyena_embedding = "/Users/nad/mobiraph/data/n19_hyena_models/hyena_embeddings_1024_and_types.pkl"
-model_root = "/Users/nad/mobiraph/data/n23_hyena_models"
-out_root = "/Users/nad/mobiraph/data/n37_test_results"
-train_ids_path = "/Users/nad/mobiraph/data/n13_repbase_processed/id_test.txt"
+path_to_hyena_embedding = "/Users/nad/mobiraph/data/n19_hyena_models/hyena_embeddings_1024_insects_30.pkl"
+model_root = "/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/hyena"
+out_root = "/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/insects_30_logits"
+# train_ids_path = "/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/id_test_with_superfamilies.txt"
+train_ids_path = None
 
 METADATA_PATH = None  # или путь
 

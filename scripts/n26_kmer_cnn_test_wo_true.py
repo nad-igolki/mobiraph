@@ -8,13 +8,13 @@ from scripts.n21_kmer_experiments import prepare_dataset, root_to_dirname
 import config
 
 
-EMBEDDINGS_PATH = "/Users/nad/mobiraph/data/n12_all_sequences_kmer/4_30_merged.csv"
+EMBEDDINGS_PATH = "/Users/nad/mobiraph/data/n12_all_sequences_kmer/1_2_3.csv"
 METADATA_PATH = None
-TRAIN_IDS_PATH = "/Users/nad/mobiraph/data/n13_repbase_processed/id_test.txt"
+TRAIN_IDS_PATH = "/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/id_train_with_superfamilies.txt"
 # TRAIN_IDS_PATH = None
 
-OUTPUTS_DIR = "/Users/nad/mobiraph/data/n44_kmer_20_models/4mer_30"
-OUTPUTS_RESULTS_DIR = "/Users/nad/mobiraph/data/n37_test_results"
+OUTPUTS_DIR = "/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/1_2_3_mer_cnns"
+OUTPUTS_RESULTS_DIR = "/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/train_logits"
 
 HIERARCHY_ROOTS = [
     "",
@@ -62,4 +62,4 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
     if has_labels and y is not None:
         df["y_true"] = label_encoder.inverse_transform(y)
 
-    df.to_csv(out_dir / "kmer_cnn_30.csv", index=False)
+    df.to_csv(out_dir / "kmer_cnn_123.csv", index=False)

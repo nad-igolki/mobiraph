@@ -15,53 +15,50 @@ HIERARCHY_ROOTS = [
         "Class I (Retrotransposons)\tLTR Retrotransposon",
         "Class I (Retrotransposons)\tNon-LTR Retrotransposon",
     ]
-results_dir = "/Users/nad/mobiraph/data/n37_test_results"
+results_dir = "/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/test_logits"
 
-gat_res= "/Users/nad/mobiraph/data/n35_train_results"
-
-# general_df = pd.DataFrame()
-# for hierarchy_root in HIERARCHY_ROOTS:
-#     df_hyena = pd.read_csv(f"{results_dir}/{hierarchy_root}/hyena_catboost.csv")
-#     df_kmer = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn.csv")
-#     df_hyena = df_hyena.drop('y_pred', axis=1, errors='ignore')
-#     df_hyena = df_hyena.drop('y_true', axis=1, errors='ignore')
-#     df_kmer = df_kmer.drop('y_pred', axis=1, errors='ignore')
-#     df_kmer = df_kmer.drop('y_true', axis=1, errors='ignore')
-#     df_gat = pd.read_csv(f"{gat_res}/{hierarchy_root}/gat.csv")
-#     df_gat = df_gat.drop('y_pred', axis=1, errors='ignore')
-#     df_both = pd.merge(df_hyena, df_kmer, on='name', how='inner')
-#     df_both = pd.merge(df_both, df_gat, on='name', how='inner')
-#     if general_df.empty:
-#         general_df = df_both
-#     else:
-#         general_df_copy = pd.merge(general_df, df_both, on='name', how='inner')
-#         general_df = general_df_copy
-#     print(general_df.shape)
+# gat_res= "/Users/nad/mobiraph/data/n35_train_results"
 
 general_df = pd.DataFrame()
-
 for hierarchy_root in HIERARCHY_ROOTS:
     df_hyena = pd.read_csv(f"{results_dir}/{hierarchy_root}/hyena_catboost.csv")
     df_kmer = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn.csv")
-    df_gat = pd.read_csv(f"{gat_res}/{hierarchy_root}/gat.csv")
+    # df_gat = pd.read_csv(f"{results_dir}/{hierarchy_root}/gat.csv")
+    df_20 = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn_20.csv")
+    df_30 = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn_30.csv")
+    df_123 = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn_123.csv")
 
-    df_hyena = df_hyena.drop(['y_pred', 'y_true'], axis=1, errors='ignore')
-    df_kmer = df_kmer.drop(['y_pred', 'y_true'], axis=1, errors='ignore')
-    df_gat = df_gat.drop(['y_pred', 'y_true'], axis=1, errors='ignore')
+    df_hyena = df_hyena.drop('y_pred', axis=1)
+    df_kmer = df_kmer.drop('y_pred', axis=1)
+    df_20 = df_20.drop('y_pred', axis=1)
+    df_30 = df_30.drop('y_pred', axis=1)
+    df_123 = df_123.drop('y_pred', axis=1)
+    # df_gat = df_gat.drop('y_pred', axis=1)
 
-    # уникализируем колонки
     df_hyena = df_hyena.rename(columns={
         col: f"{col}_hyena_{hierarchy_root}" for col in df_hyena.columns if col != 'name'
     })
     df_kmer = df_kmer.rename(columns={
         col: f"{col}_kmer_{hierarchy_root}" for col in df_kmer.columns if col != 'name'
     })
-    df_gat = df_gat.rename(columns={
-        col: f"{col}_gat_{hierarchy_root}" for col in df_gat.columns if col != 'name'
+    # df_gat = df_gat.rename(columns={
+    #     col: f"{col}_gat_{hierarchy_root}" for col in df_gat.columns if col != 'name'
+    # })
+    df_20 = df_20.rename(columns={
+        col: f"{col}_20_{hierarchy_root}" for col in df_20.columns if col != 'name'
+    })
+    df_30 = df_30.rename(columns={
+        col: f"{col}_30_{hierarchy_root}" for col in df_30.columns if col != 'name'
+    })
+    df_123 = df_123.rename(columns={
+        col: f"{col}_30_{hierarchy_root}" for col in df_123.columns if col != 'name'
     })
 
     df_both = pd.merge(df_hyena, df_kmer, on='name', how='inner')
-    df_both = pd.merge(df_both, df_gat, on='name', how='inner')
+    # df_both = pd.merge(df_both, df_gat, on='name', how='inner')
+    df_both = pd.merge(df_both, df_20, on='name', how='inner')
+    df_both = pd.merge(df_both, df_30, on='name', how='inner')
+    df_both = pd.merge(df_both, df_123, on='name', how='inner')
 
     if general_df.empty:
         general_df = df_both
@@ -69,6 +66,38 @@ for hierarchy_root in HIERARCHY_ROOTS:
         general_df = pd.merge(general_df, df_both, on='name', how='inner')
 
     print(general_df.shape)
+
+# general_df = pd.DataFrame()
+#
+# for hierarchy_root in HIERARCHY_ROOTS:
+#     df_hyena = pd.read_csv(f"{results_dir}/{hierarchy_root}/hyena_catboost.csv")
+#     df_kmer = pd.read_csv(f"{results_dir}/{hierarchy_root}/kmer_cnn.csv")
+#     # df_gat = pd.read_csv(f"{gat_res}/{hierarchy_root}/gat.csv")
+#
+#     df_hyena = df_hyena.drop(['y_pred', 'y_true'], axis=1, errors='ignore')
+#     df_kmer = df_kmer.drop(['y_pred', 'y_true'], axis=1, errors='ignore')
+#     # df_gat = df_gat.drop(['y_pred', 'y_true'], axis=1, errors='ignore')
+#
+#     # уникализируем колонки
+#     df_hyena = df_hyena.rename(columns={
+#         col: f"{col}_hyena_{hierarchy_root}" for col in df_hyena.columns if col != 'name'
+#     })
+#     df_kmer = df_kmer.rename(columns={
+#         col: f"{col}_kmer_{hierarchy_root}" for col in df_kmer.columns if col != 'name'
+#     })
+#     # df_gat = df_gat.rename(columns={
+#     #     col: f"{col}_gat_{hierarchy_root}" for col in df_gat.columns if col != 'name'
+#     # })
+#
+#     df_both = pd.merge(df_hyena, df_kmer, on='name', how='inner')
+#     # df_both = pd.merge(df_both, df_gat, on='name', how='inner')
+#
+#     if general_df.empty:
+#         general_df = df_both
+#     else:
+#         general_df = pd.merge(general_df, df_both, on='name', how='inner')
+#
+#     print(general_df.shape)
 
 import json
 with open("/Users/nad/mobiraph/data/n13_repbase_processed/metadata_03.json", "r", encoding="utf-8") as f:
@@ -78,23 +107,23 @@ print(type(metadata))
 
 y_true = []
 for value in general_df['name']:
-    if value not in metadata:
-        y_true.append(np.nan)
-        continue
-    if 'superfamily' not in metadata[value]:
-        y_true.append(np.nan)
-        continue
-    if metadata[value]['superfamily'] in ["Academ", "DNA transposon_other", "Kolobok", "Troyka", "Non-LTR Retrotransposon_other", "piggyBac"]:
-        y_true.append(np.nan)
-    else:
-        y_true.append(metadata[value]['superfamily'])
+    # if value not in metadata:
+    #     y_true.append(np.nan)
+    #     continue
+    # if 'superfamily' not in metadata[value]:
+    #     y_true.append(np.nan)
+    #     continue
+    # if metadata[value]['superfamily'] in ["Academ", "DNA transposon_other", "Kolobok", "Troyka", "Non-LTR Retrotransposon_other", "piggyBac"]:
+    #     y_true.append(np.nan)
+    # else:
+    y_true.append(metadata[value]['superfamily'])
 general_df['y_true'] = y_true
 general_df['y_true'] = general_df['y_true'].astype(str)
 general_df = general_df[general_df['y_true'] != 'nan']
 
 general_df = general_df.dropna()
 
-model_path = f"/Users/nad/mobiraph/data/n36_ensemble_superfamily_new_new/XGBClassifier.pkl"
+model_path = f"/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/ensemble_model/XGBClassifier.pkl"
 bundle = joblib.load(model_path)
 
 def predict_on_new_data(bundle, df):
@@ -186,8 +215,30 @@ for cls in res['y_class_true'].unique():
     acc = (res.loc[mask, 'y_class_true'] == res.loc[mask, 'y_class_pred']).mean()
     print(f"{cls}: {acc:.3f}")
 
+from sklearn.metrics import confusion_matrix
+def macro_specificity(y_true, y_pred, labels=None):
+    y_true = pd.Series(y_true).astype(str)
+    y_pred = pd.Series(y_pred).astype(str)
 
+    if labels is None:
+        labels = sorted(y_true.unique())
 
+    cm = confusion_matrix(y_true, y_pred, labels=labels)
+
+    specs = []
+    for i in range(len(labels)):
+        tn = cm.sum() - (cm[i, :].sum() + cm[:, i].sum() - cm[i, i])
+        fp = cm[:, i].sum() - cm[i, i]
+        spec = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+        specs.append(spec)
+
+    return np.mean(specs)
+
+print("Macro specificity (superfamily):",
+      macro_specificity(res["y_true"], res["prediction"], labels=bundle["classes"]))
+
+print("Macro specificity (class):",
+      macro_specificity(res["y_class_true"], res["y_class_pred"]))
 
 
 # def extract_sequences(fasta_file, headers_file, output_file):

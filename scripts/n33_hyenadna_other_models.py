@@ -43,10 +43,12 @@ HIERARCHY_ROOTS = [
     "Class I (Retrotransposons)\tNon-LTR Retrotransposon",
 ]
 
-with open(f'{config.DIR_REPBASE_PROCESSED}/id_train.txt', 'r', encoding='utf-8') as file:
+with open(f'/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/id_train_with_superfamilies.txt', 'r',
+          encoding='utf-8') as file:
     names_train = [line.strip() for line in file]
 
-with open(f'{config.DIR_REPBASE_PROCESSED}/id_test.txt', 'r', encoding='utf-8') as file:
+with open(f'/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/id_test_with_superfamilies.txt', 'r',
+          encoding='utf-8') as file:
     names_test = [line.strip() for line in file]
 
 train_filtered = [name for name in names_train if name in name_to_embedding]
@@ -62,7 +64,7 @@ with open(
 for HIERARCHY_ROOT in HIERARCHY_ROOTS:
     print('-' * 20, HIERARCHY_ROOT, '-' * 20)
 
-    save_dir = f"/Users/nad/mobiraph/data/n23_hyena_models/{root_to_dirname(HIERARCHY_ROOT)}"
+    save_dir = f"/Users/nad/mobiraph/data/n13_repbase_processed_wo_bad_sf/hyena/{root_to_dirname(HIERARCHY_ROOT)}"
     model_path = os.path.join(save_dir, "catboost_model.cbm")
     aux_path = os.path.join(save_dir, "catboost_meta.pkl")
 
@@ -150,11 +152,11 @@ for HIERARCHY_ROOT in HIERARCHY_ROOTS:
     df_logits["y_true"] = y_true_labels
     df_logits["y_pred"] = y_pred_labels
 
-    logit_dir = f"/Users/nad/mobiraph/data/n22_test_results/{root_to_dirname(HIERARCHY_ROOT)}"
+    logit_dir = f"/Users/nad/mobiraph/data/n22_test_results_new/{root_to_dirname(HIERARCHY_ROOT)}"
     os.makedirs(logit_dir, exist_ok=True)
 
     df_logits.to_csv(f"{logit_dir}/hyena_catboost_logits.csv", index=False)
 
     print(df_logits.head())
     print("Accuracy:", accuracy_score(y_true_labels, y_pred_labels))
-    print("F1-macro:", f1_score(y_true_labels, y_pred_labels, average="macro"))
+    print("F1-weighted:", f1_score(y_true_labels, y_pred_labels, average="weighted"))
