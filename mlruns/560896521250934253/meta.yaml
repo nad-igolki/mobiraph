@@ -1,0 +1,7 @@
+artifact_location: file:///Users/nad/mobiraph/mlruns/560896521250934253
+creation_time: 1772128418984
+experiment_id: '560896521250934253'
+last_update_time: 1772128418984
+lifecycle_stage: active
+name: cnn-7mer
+workspace: default

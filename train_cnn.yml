@@ -1,0 +1,9 @@
+name: train_cnn
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - tensorflow
+  - numpy
+  - pandas
+  - scikit-learn

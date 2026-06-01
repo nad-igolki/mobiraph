@@ -1,5 +1,6 @@
 data/
 config.py
+config_real.py
 **/.DS_Store
 **/.idea/
 **/__pycache__/
@@ -8,6 +9,7 @@ scripts/test*
 checkpoints/
 hyena_dna/
 mobiraph.yml
+not_used/
 
 #!n01_data/n06_insects_many/
 #!n01_data/n06_insects_many/**

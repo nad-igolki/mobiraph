@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/nad/mobiraph/mlruns/560896521250934253/3b833b90602d4a77b46160488b64cc0f/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '560896521250934253'
+lifecycle_stage: active
+run_id: 3b833b90602d4a77b46160488b64cc0f
+run_name: cnn_7mer
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1772129749041
+status: 1
+tags: []
+user_id: nad
