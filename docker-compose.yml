@@ -1,0 +1,11 @@
+services:
+  mobiraph:
+    build: .
+    image: mobiraph
+    volumes:
+      - ./data:/app/data
+      - ./checkpoints:/app/checkpoints
+      - ./models:/app/models
+      - ./output:/app/output
+    environment:
+      - PYTHONUNBUFFERED=1
